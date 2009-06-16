@@ -1,4 +1,8 @@
 <?php
+/**
+ * @file
+ * @ingroup Maintenance
+ */
 
 require_once( 'commandLine.inc' );
 require_once( "$IP/includes/LinkFilter.php" );
@@ -14,9 +18,8 @@ function cleanupArticle( $id, $domain ) {
 	$rev = Revision::newFromTitle( $title );
 	$revId = $rev->getId();
 	$currentRevId = $revId;
-	$regex = LinkFilter::makeRegex( $domain );
 	
-	while ( $rev && preg_match( $regex, $rev->getText() ) ) {
+	while ( $rev && LinkFilter::matchEntry( $rev->getText() , $domain ) ) {
 		# Revision::getPrevious can't be used in this way before MW 1.6 (Revision.php 1.26)
 		#$rev = $rev->getPrevious();
 		$revId = $title->getPreviousRevisionID( $revId );
@@ -59,7 +62,7 @@ $username = wfMsg( 'spambot_username' );
 $fname = $username;
 $wgUser = User::newFromName( $username );
 // Create the user if necessary
-if ( !$wgUser->getID() ) {
+if ( !$wgUser->getId() ) {
 	$wgUser->addToDatabase();
 }
 

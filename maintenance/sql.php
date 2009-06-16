@@ -1,10 +1,10 @@
 <?php
-
 /**
  * Send SQL queries from the specified file to the database, performing
  * variable replacement along the way.
- * 
- * @addtogroup Database
+ *
+ * @file
+ * @ingroup Database Maintenance
  */
 
 require_once( dirname(__FILE__) . '/' . 'commandLine.inc' );
@@ -53,15 +53,15 @@ class SqlPromptPrinter {
 	}
 }
 
-function sqlPrintResult( $res ) {
+function sqlPrintResult( $res, $db ) {
 	if ( !$res ) {
 		// Do nothing
-	} elseif ( $res->numRows() ) {
+	} elseif ( is_object( $res ) && $res->numRows() ) {
 		while ( $row = $res->fetchObject() ) {
 			print_r( $row );
 		}
 	} else {
-		$affected = $res->db->affectedRows();
+		$affected = $db->affectedRows();
 		echo "Query OK, $affected row(s) affected\n";
 	}
 }

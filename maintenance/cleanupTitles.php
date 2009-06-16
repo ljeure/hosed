@@ -24,13 +24,17 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
  *
+ * @file
  * @author Brion Vibber <brion at pobox.com>
- * @addtogroup maintenance
+ * @ingroup Maintenance
  */
 
 require_once( 'commandLine.inc' );
 require_once( 'cleanupTable.inc' );
 
+/**
+ * @ingroup Maintenance
+ */
 class TitleCleanup extends TableCleanup {
 	function __construct( $dryrun = false ) {
 		parent::__construct( 'page', $dryrun );
@@ -44,19 +48,30 @@ class TitleCleanup extends TableCleanup {
 
 		$title = Title::newFromText( $verified );
 
-		if( is_null( $title ) ) {
+		if( !is_null( $title ) && $title->equals( $current ) && $title->canExist() ) {
+			return $this->progress( 0 );  // all is fine
+		}
+
+		if( $row->page_namespace == NS_FILE && $this->fileExists( $row->page_title ) ) {
+			$this->log( "file $row->page_title needs cleanup, please run cleanupImages.php." );
+			return $this->progress( 0 );
+		} elseif( is_null( $title ) ) {
 			$this->log( "page $row->page_id ($display) is illegal." );
 			$this->moveIllegalPage( $row );
 			return $this->progress( 1 );
-		}
-
-		if( !$title->equals( $current ) ) {
+		} else {
 			$this->log( "page $row->page_id ($display) doesn't match self." );
 			$this->moveInconsistentPage( $row, $title );
 			return $this->progress( 1 );
 		}
+	}
 
-		$this->progress( 0 );
+	function fileExists( $name ) {
+		// XXX: Doesn't actually check for file existence, just presence of image record.
+		// This is reasonable, since cleanupImages.php only iterates over the image table.
+		$dbr = wfGetDB( DB_SLAVE );
+		$row = $dbr->selectRow( 'image', array( 'img_name' ), array( 'img_name' => $name ), __METHOD__ );
+		return $row !== false;
 	}
 
 	function moveIllegalPage( $row ) {
@@ -79,7 +94,7 @@ class TitleCleanup extends TableCleanup {
 			$title = Title::newFromText( $clean );
 		}
 
-		$dest = $title->getDbKey();
+		$dest = $title->getDBkey();
 		if( $this->dryrun ) {
 			$this->log( "DRY RUN: would rename $row->page_id ($row->page_namespace,'$row->page_title') to ($row->page_namespace,'$dest')" );
 		} else {
@@ -97,7 +112,7 @@ class TitleCleanup extends TableCleanup {
 			if( $title->getInterwiki() ) {
 				$prior = $title->getPrefixedDbKey();
 			} else {
-				$prior = $title->getDbKey();
+				$prior = $title->getDBkey();
 			}
 			$clean = 'Broken/' . $prior;
 			$verified = Title::makeTitleSafe( $row->page_namespace, $clean );
@@ -112,7 +127,7 @@ class TitleCleanup extends TableCleanup {
 			wfDie( "Something awry; empty title.\n" );
 		}
 		$ns = $title->getNamespace();
-		$dest = $title->getDbKey();
+		$dest = $title->getDBkey();
 		if( $this->dryrun ) {
 			$this->log( "DRY RUN: would rename $row->page_id ($row->page_namespace,'$row->page_title') to ($row->page_namespace,'$dest')" );
 		} else {
@@ -125,7 +140,7 @@ class TitleCleanup extends TableCleanup {
 				),
 				array( 'page_id' => $row->page_id ),
 				'cleanupTitles::moveInconsistentPage' );
-			$linkCache =& LinkCache::singleton();
+			$linkCache = LinkCache::singleton();
 			$linkCache->clear();
 		}
 	}

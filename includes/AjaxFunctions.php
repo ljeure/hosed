@@ -1,8 +1,7 @@
 <?php
-
-/** 
- * @package MediaWiki
- * @addtogroup Ajax
+/**
+ * @file
+ * @ingroup Ajax
  */
 
 if( !defined( 'MEDIAWIKI' ) ) {
@@ -15,7 +14,8 @@ if( !defined( 'MEDIAWIKI' ) ) {
  * Modified function from http://pure-essence.net/stuff/code/utf8RawUrlDecode.phps
  *
  * @param $source String escaped with Javascript's escape() function
- * @param $iconv_to String destination character set will be used as second paramether in the iconv function. Default is UTF-8.
+ * @param $iconv_to String destination character set will be used as second parameter 
+ * in the iconv function. Default is UTF-8.
  * @return string
  */
 function js_unescape($source, $iconv_to = 'UTF-8') {
@@ -56,7 +56,7 @@ function js_unescape($source, $iconv_to = 'UTF-8') {
 
 /**
  * Function coverts number of utf char into that character.
- * Function taken from: http://sk2.php.net/manual/en/function.utf8-encode.php#49336
+ * Function taken from: http://www.php.net/manual/en/function.utf8-encode.php#49336
  *
  * @param $num Integer
  * @return utf8char
@@ -73,72 +73,11 @@ function code2utf($num){
    return '';
 }
 
-function wfSajaxSearch( $term ) {
-	global $wgContLang, $wgOut;
-	$limit = 16;
-
-	$l = new Linker;
-
-	$term = str_replace( ' ', '_', $wgContLang->ucfirst( 
-			$wgContLang->checkTitleEncoding( $wgContLang->recodeInput( js_unescape( $term ) ) )
-		) );
-
-	if ( strlen( str_replace( '_', '', $term ) )<3 )
-		return;
-
-	$db = wfGetDB( DB_SLAVE );
-	$res = $db->select( 'page', 'page_title',
-			array(  'page_namespace' => 0,
-				"page_title LIKE '". $db->strencode( $term) ."%'" ),
-				"wfSajaxSearch",
-				array( 'LIMIT' => $limit+1 )
-			);
-
-	$r = "";
-
-	$i=0;
-	while ( ( $row = $db->fetchObject( $res ) ) && ( ++$i <= $limit ) ) {
-		$nt = Title::newFromDBkey( $row->page_title );
-		$r .= '<li>' . $l->makeKnownLinkObj( $nt ) . "</li>\n";
-	}
-	if ( $i > $limit ) {
-		$more = '<i>' .  $l->makeKnownLink( $wgContLang->specialPage( "Allpages" ),
-		                                wfMsg('moredotdotdot'),
-		                                "namespace=0&from=" . wfUrlEncode ( $term ) ) .
-			'</i>';
-	} else {
-		$more = '';
-	}
-
-	$subtitlemsg = ( Title::newFromText($term) ? 'searchsubtitle' : 'searchsubtitleinvalid' );
-	$subtitle = $wgOut->parse( wfMsg( $subtitlemsg, wfEscapeWikiText($term) ) ); #FIXME: parser is missing mTitle !
-
-	$term = urlencode( $term );
-	$html = '<div style="float:right; border:solid 1px black;background:gainsboro;padding:2px;"><a onclick="Searching_Hide_Results();">'
-		. wfMsg( 'hideresults' ) . '</a></div>'
-		. '<h1 class="firstHeading">'.wfMsg('search')
-		. '</h1><div id="contentSub">'. $subtitle . '</div><ul><li>'
-		. $l->makeKnownLink( $wgContLang->specialPage( 'Search' ),
-					wfMsg( 'searchcontaining', $term ),
-					"search=$term&fulltext=Search" )
-		. '</li><li>' . $l->makeKnownLink( $wgContLang->specialPage( 'Search' ),
-					wfMsg( 'searchnamed', $term ) ,
-					"search=$term&go=Go" )
-		. "</li></ul><h2>" . wfMsg( 'articletitles', $term ) . "</h2>"
-		. '<ul>' .$r .'</ul>'.$more;
-
-	$response = new AjaxResponse( $html );
-
-	$response->setCacheDuration( 30*60 );
-
-	return $response;
-}
-
 /**
  * Called for AJAX watch/unwatch requests.
  * @param $pagename Prefixed title string for page to watch/unwatch
  * @param $watch String 'w' to watch, 'u' to unwatch
- * @return String '<w#>' or '<u#>' on successful watch or unwatch, 
+ * @return String '<w#>' or '<u#>' on successful watch or unwatch,
  *   respectively, followed by an HTML message to display in the alert box; or
  *   '<err#>' on error
  */
@@ -146,7 +85,7 @@ function wfAjaxWatch($pagename = "", $watch = "") {
 	if(wfReadOnly()) {
 		// redirect to action=(un)watch, which will display the database lock
 		// message
-		return '<err#>'; 
+		return '<err#>';
 	}
 
 	if('w' !== $watch && 'u' !== $watch) {
@@ -154,7 +93,7 @@ function wfAjaxWatch($pagename = "", $watch = "") {
 	}
 	$watch = 'w' === $watch;
 
-	$title = Title::newFromText($pagename);
+	$title = Title::newFromDBkey($pagename);
 	if(!$title) {
 		// Invalid title
 		return '<err#>';
@@ -166,16 +105,20 @@ function wfAjaxWatch($pagename = "", $watch = "") {
 		if(!$watching) {
 			$dbw = wfGetDB(DB_MASTER);
 			$dbw->begin();
-			$article->doWatch();
+			$ok = $article->doWatch();
 			$dbw->commit();
 		}
 	} else {
 		if($watching) {
 			$dbw = wfGetDB(DB_MASTER);
 			$dbw->begin();
-			$article->doUnwatch();
+			$ok = $article->doUnwatch();
 			$dbw->commit();
 		}
+	}
+	// Something stopped the change
+	if( isset($ok) && !$ok ) {
+		return '<err#>';
 	}
 	if( $watch ) {
 		return '<w#>'.wfMsgExt( 'addedwatchtext', array( 'parse' ), $title->getPrefixedText() );
@@ -184,3 +127,32 @@ function wfAjaxWatch($pagename = "", $watch = "") {
 	}
 }
 
+/**
+ * Called in some places (currently just extensions)
+ * to get the thumbnail URL for a given file at a given resolution.
+ */
+function wfAjaxGetThumbnailUrl( $file, $width, $height ) {
+	$file = wfFindFile( $file );
+	
+	if ( !$file || !$file->exists() )
+		return null;
+		
+	$url = $file->getThumbnail( $width, $height )->url;
+	
+	return $url;
+}
+
+/**
+ * Called in some places (currently just extensions)
+ * to get the URL for a given file.
+ */
+function wfAjaxGetFileUrl( $file ) {
+	$file = wfFindFile( $file );
+	
+	if ( !$file || !$file->exists() )
+		return null;
+		
+	$url = $file->getUrl();
+	
+	return $url;
+}

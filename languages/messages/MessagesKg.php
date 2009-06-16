@@ -1,98 +1,150 @@
 <?php
-/** Kongo (Kikongo)
+/** Kongo (Kongo)
  *
- * @addtogroup Language
+ * @ingroup Language
+ * @file
+ *
+ * @author Rkupsala
+ * @author לערי ריינהארט
  */
 
 $messages = array(
+# Dates
+'sunday'        => 'Lumingu',
+'monday'        => 'Kimosi',
+'tuesday'       => 'Kizole',
+'wednesday'     => 'Kitatu',
+'thursday'      => 'Kiya',
+'friday'        => 'Kitanu',
+'saturday'      => 'Sabala',
+'sun'           => 'Lum',
+'mon'           => 'ki-1',
+'tue'           => 'ki-2',
+'wed'           => 'ki-3',
+'thu'           => 'ki-4',
+'fri'           => 'ki-5',
+'sat'           => 'Sab',
+'january'       => 'ngonda ya ntete',
+'february'      => 'ngonda ya zole',
+'march'         => 'ngonda ya tatu',
+'april'         => 'ngonda ya iya',
+'may_long'      => 'ngonda ya tanu',
+'june'          => 'ngonda ya sambanu',
+'july'          => 'ngonda ya nsambwadi',
+'august'        => 'ngonda ya nana',
+'september'     => 'ngonda ya uvwa',
+'october'       => 'ngonda ya kumi',
+'november'      => 'ngonda ya kumi na mosi',
+'december'      => 'ngonda ya kumi na zole',
+'january-gen'   => 'ngonda ya ntete',
+'february-gen'  => 'ngonda ya zôle',
+'march-gen'     => 'ngonda ya tatu',
+'april-gen'     => 'ngonda ya iya',
+'may-gen'       => 'ngonda ya tânu',
+'june-gen'      => 'ngonda ya sambanu',
+'july-gen'      => 'ngonda ya nsambwadi',
+'august-gen'    => 'ngonda ya nâna',
+'september-gen' => 'ngonda ya uvwa',
+'october-gen'   => 'ngonda ya kûmi',
+'november-gen'  => 'ngonda ya kûmi na mosi',
+'december-gen'  => 'ngonda ya kûmi na zôle',
 
-# dates
-'sunday'                => 'Lumingu',
-'monday'                => 'Kimosi',
-'tuesday'               => 'Kizole',
-'wednesday'             => 'Kitatu',
-'thursday'              => 'Kiya',
-'friday'                => 'Kitanu',
-'saturday'              => 'Sabala',
+# Categories related messages
+'pagecategories'  => '{{PLURAL:$1|Kalasi|Bakalasi}}',
+'category_header' => 'Mikanda na kalasi "$1"',
 
-# months
-'january'               => 'ngonda ya ntete',
-'february'              => 'ngonda ya zole',
-'march'                 => 'ngonda ya tatu',
-'april'                 => 'ngonda ya iya',
-'may_long'              => 'ngonda ya tanu',
-'june'                  => 'ngonda ya sambanu',
-'july'                  => 'ngonda ya nsambwadi',
-'august'                => 'ngonda ya nana',
-'september'             => 'ngonda ya uvwa',
-'october'               => 'ngonda ya kumi',
-'november'              => 'ngonda ya kumi na mosi',
-'december'              => 'ngonda ya kumi na zole',
+'article' => 'Pagina contenta continens',
+'cancel'  => 'Katula',
+'mytalk'  => 'Disolo ya munu',
 
-# Bits of text used by many pages:
-'categories'            => 'Bakalasi',
-'pagecategories'        => '{{PLURAL:$1|Kalasi|Bakalasi}}',
-'category_header'       => 'Mikanda na kalasi "$1"',
-'mainpage'              => 'Lukaya ya mfumu',
+'errorpagetitle'   => 'Foti',
+'help'             => 'Nsadisa',
+'search'           => 'Sosa',
+'searchbutton'     => 'Sosa',
+'searcharticle'    => 'Kwenda',
+'history'          => 'Bampaluka ya lukaya',
+'history_short'    => 'Bampaluka',
+'edit'             => 'Sonika',
+'talkpagelinktext' => 'Disolo',
+'talk'             => 'Disolo',
+'toolbox'          => 'Bisadilu',
+'otherlanguages'   => 'Bandinga ya nkaka',
+'redirectedfrom'   => '(Balulama tuka $1)',
+'jumpto'           => 'Pamuka na:',
+'jumptosearch'     => 'nsosa',
 
-'article'               => 'Pagina contenta continens',
-'help'                  => 'Nsadisa',
-'mytalk'                => 'Disolo ya munu',
-'currentevents'         => 'Mambu ya mpa',
-'currentevents-url'     => 'Mambu ya mpa',
-'search'                => 'Sosa',
-'searchbutton'          => 'Sosa',
-'searcharticle'         => 'Kwenda',
-'history'               => 'Bampaluka ya lukaya',
-'history_short'         => 'Bampaluka',
-'edit'                  => 'Sonika',
-'talk'                  => 'Disolo',
-'toolbox'               => 'Bisadilu',
-'otherlanguages'        => 'Bandinga ya nkaka',
-'redirectedfrom'        => '(Balulama tuka $1)',
-'retrievedfrom'         => 'Receptum de "$1"',
+# All link text and link target definitions of links into project namespace that get used by other message strings, with the exception of user group pages (see grouppage) and the disambiguation template definition (see disambiguations).
+'currentevents'        => 'Mambu ya mpa',
+'currentevents-url'    => 'Project:Mambu ya mpa',
+'mainpage'             => 'Lukaya ya mfumu',
+'mainpage-description' => 'Lukaya ya mfumu',
 
-# nstab
-'nstab-main'            => 'Mukanda',
-'nstab-category'        => 'Kalasi',
+'retrievedfrom' => 'Receptum de "$1"',
 
-
-'yourlanguage'          => 'Ndinga:',
+# Short words for each namespace, by default used in the namespace tab in monobook
+'nstab-main'     => 'Mukanda',
+'nstab-category' => 'Kalasi',
 
 # Login and logout pages
-'loginlanguagelabel'    => 'Ndinga: $1',
-'logout'                => 'Basika',
-'userlogout'            => 'Basika',
+'logout'             => 'Basika',
+'userlogout'         => 'Basika',
+'yourlanguage'       => 'Ndinga:',
+'loginlanguagelabel' => 'Ndinga: $1',
 
-'histfirst'             => 'Ya ntete',
-'histlast'              => 'Ya nsuka',
+# History pages
+'histfirst' => 'Ya ntete',
+'histlast'  => 'Ya nsuka',
 
-'prevn'                 => 'biyita $1',
-'nextn'                 => 'bilandi $1',
-'viewprevnext'          => 'Mona ($1) ($2) ($3).',
+# Diffs
+'lineno' => 'Nzila ya $1:',
 
-'powersearch'           => 'Sosa',
+# Search results
+'prevn'        => 'biyita $1',
+'nextn'        => 'bilandi $1',
+'viewprevnext' => 'Mona ($1) ($2) ($3).',
+'powersearch'  => 'Sosa',
 
-'mypreferences'         => 'Konte ya munu',
+# Preferences page
+'mypreferences' => 'Konte ya munu',
 
-# Recentchanges
-'recentchanges'         => 'Bampaluka ya mpa',
+# Recent changes
+'recentchanges' => 'Bampaluka ya mpa',
 
+# Random page
+'randompage' => 'Lukaya na kintulumukini',
 
-'ncategories'           => '{{PLURAL:$1|kalasi|bakalasi}} $1',
+# Miscellaneous special pages
+'ncategories' => '{{PLURAL:$1|kalasi|bakalasi}} $1',
 
-'randompage'            => 'Lukaya na kintulumukini',
-'mycontris'             => 'Makabu ya munu',
-'whatlinkshere'         => 'Balukaya ke songa awa',
+# Special:AllPages
+'alphaindexline' => '$1 tî $2',
 
-'categoryarticlecount'  => '{{PLURAL:$1|Mukanda mosi|Mikanda $1 }} ni na kalasi yayi.', //
+# Special:Categories
+'categories' => 'Bakalasi',
+
+# Contributions
+'mycontris' => 'Makabu ya munu',
+
+# What links here
+'whatlinkshere' => 'Balukaya ke songa awa',
+
+# Move page
+'movearticle'    => 'Nata lukaya:',
+'newtitle'       => 'Zina ya nkaka:',
+'movepagebtn'    => 'Nata lukaya',
+'pagemovedsub'   => 'Kunata me nunga',
+'movepage-moved' => '<big>\'\'\'"$1" me natama na "$2"\'\'\'</big>', # The two titles are passed in plain text as $3 and $4 to allow additional goodies in the message.
+'articleexists'  => 'Lukaya ya nkaka kele na zina yango, to zina yango kele ya mbote ve.
+Sola zina ya nkaka.',
+'movereason'     => 'Samu:',
+
+# Tooltip help for the actions
+'tooltip-search' => 'Sosa na {{SITENAME}}',
 
 # Table pager
-'table_pager_first'     => 'Lukaya ya ntete',
-'table_pager_last'      => 'Lukaya ya nsuka',
-'table_pager_next'      => 'Lukaya ya kulanda',
-'table_pager_prev'      => 'Lukaya ya kuyita',
+'table_pager_next'  => 'Lukaya ya kulanda',
+'table_pager_prev'  => 'Lukaya ya kuyita',
+'table_pager_first' => 'Lukaya ya ntete',
+'table_pager_last'  => 'Lukaya ya nsuka',
 
 );
-
-

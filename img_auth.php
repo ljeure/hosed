@@ -17,6 +17,12 @@ require_once( dirname( __FILE__ ) . '/includes/WebStart.php' );
 wfProfileIn( 'img_auth.php' );
 require_once( dirname( __FILE__ ) . '/includes/StreamFile.php' );
 
+$perms = User::getGroupPermissions( array( '*' ) );
+if ( in_array( 'read', $perms, true ) ) {
+	wfDebugLog( 'img_auth', 'Public wiki' );
+	wfPublicError();
+}
+
 // Extract path and image information
 if( !isset( $_SERVER['PATH_INFO'] ) ) {
 	wfDebugLog( 'img_auth', 'Missing PATH_INFO' );
@@ -42,7 +48,7 @@ if( preg_match( '!\d+px-(.*)!i', $name, $m ) )
 	$name = $m[1];
 wfDebugLog( 'img_auth', "\$name is {$name}" );
 
-$title = Title::makeTitleSafe( NS_IMAGE, $name );
+$title = Title::makeTitleSafe( NS_FILE, $name );
 if( !$title instanceof Title ) {
 	wfDebugLog( 'img_auth', "Unable to construct a valid Title from `{$name}`" );
 	wfForbidden();
@@ -66,7 +72,7 @@ if( is_dir( $filename ) ) {
 
 // Stream the requested file
 wfDebugLog( 'img_auth', "Streaming `{$filename}`" );
-wfStreamFile( $filename );
+wfStreamFile( $filename, array( 'Cache-Control: private', 'Vary: Cookie' ) );
 wfLogProfilingData();
 
 /**
@@ -75,15 +81,38 @@ wfLogProfilingData();
  */
 function wfForbidden() {
 	header( 'HTTP/1.0 403 Forbidden' );
+	header( 'Vary: Cookie' );
 	header( 'Content-Type: text/html; charset=utf-8' );
-	echo <<<END
+	echo <<<ENDS
 <html>
 <body>
 <h1>Access Denied</h1>
 <p>You need to log in to access files on this server.</p>
 </body>
 </html>
-END;
+ENDS;
 	wfLogProfilingData();
 	exit();
 }
+
+/**
+ * Show a 403 error for use when the wiki is public
+ */
+function wfPublicError() {
+	header( 'HTTP/1.0 403 Forbidden' );
+	header( 'Content-Type: text/html; charset=utf-8' );
+	echo <<<ENDS
+<html>
+<body>
+<h1>Access Denied</h1>
+<p>The function of img_auth.php is to output files from a private wiki. This wiki
+is configured as a public wiki. For optimal security, img_auth.php is disabled in 
+this case.
+</p>
+</body>
+</html>
+ENDS;
+	wfLogProfilingData();
+	exit;
+}
+

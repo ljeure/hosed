@@ -67,12 +67,27 @@ $ourdb['postgres']['compile']    = 'pgsql';
 $ourdb['postgres']['bgcolor']    = '#aaccff';
 $ourdb['postgres']['rootuser']   = 'postgres';
 
+/*** SQLITE DISABLED -- USE MEDIAWIKI 1.15 */
+#$ourdb['sqlite']['fullname']      = 'SQLite';
+#$ourdb['sqlite']['havedriver']    = 0;
+#$ourdb['sqlite']['compile']       = 'pdo_sqlite';
+#$ourdb['sqlite']['bgcolor']       = '#b1ebb1';
+#$ourdb['sqlite']['rootuser']      = '';
+/************************************/
+
+$ourdb['mssql']['fullname']      = 'MSSQL';
+$ourdb['mssql']['havedriver']    = 0;
+$ourdb['mssql']['compile']       = 'mssql not ready'; # Change to 'mssql' after includes/DatabaseMssql.php added;
+$ourdb['mssql']['bgcolor']       = '#ffc0cb';
+$ourdb['mssql']['rootuser']      = 'administrator';
+
 ?>
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
-<html>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en" dir="ltr">
 <head>
-	<meta http-equiv="Content-type" content="text/html; charset=utf-8">
-	<title>MediaWiki <?php echo( $wgVersion ); ?> Installation</title>
+	<meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+	<meta name="robots" content="noindex,nofollow"/>
+	<title>MediaWiki <?php echo htmlspecialchars( $wgVersion ); ?> Installation</title>
 	<style type="text/css">
 
 		@import "../skins/monobook/main.css";
@@ -164,15 +179,15 @@ $ourdb['postgres']['rootuser']   = 'postgres';
 	<!--
 	function hideall() {
 		<?php foreach (array_keys($ourdb) as $db) {
-		echo "\n		document.getElementById('$db').style.display='none';";
+		echo "\n		var i = document.getElementById('$db'); if (i) i.style.display='none';";
 		}
 		?>
 
 	}
 	function toggleDBarea(id,defaultroot) {
 		hideall();
-		var dbarea = document.getElementById(id).style;
-		dbarea.display = (dbarea.display == 'none') ? 'block' : 'none';
+		var dbarea = document.getElementById(id);
+		if (dbarea) dbarea.style.display = (dbarea.style.display == 'none') ? 'block' : 'none';
 		var db = document.getElementById('RootUser');
 		if (defaultroot) {
 <?php foreach (array_keys($ourdb) as $db) {
@@ -190,22 +205,21 @@ $ourdb['postgres']['rootuser']   = 'postgres';
 <div id="content">
 <div id="bodyContent">
 
-<h1>MediaWiki <?php print $wgVersion ?> Installation</h1>
+<h1>MediaWiki <?php print htmlspecialchars( $wgVersion ) ?> Installation</h1>
 
 <?php
+$mainListOpened = false; # Is the main list (environement checking) opend ? Used by dieout
 
 /* Check for existing configurations and bug out! */
 
 if( file_exists( "../LocalSettings.php" ) ) {
 	$script = defined('MW_INSTALL_PHP5_EXT') ? 'index.php5' : 'index.php';
- dieout( "<p><strong>Setup has completed, <a href='../$script'>your wiki</a> is configured.</strong></p>
-
-	<p>Please delete the /config directory for extra security.</p></div></div></div></div>" );
+	dieout( "<p><strong>Setup has completed, <a href='../$script'>your wiki</a> is configured.</strong></p>
+	<p>Please delete the /config directory for extra security.</p>" );
 }
 
 if( file_exists( "./LocalSettings.php" ) ) {
 	writeSuccessMessage();
-
 	dieout( '' );
 }
 
@@ -271,7 +285,7 @@ class ConfigData {
 <ul>
 	<li>
 		<b>Don't forget security updates!</b> Keep an eye on the
-		<a href="http://mail.wikimedia.org/mailman/listinfo/mediawiki-announce">low-traffic
+		<a href="http://lists.wikimedia.org/mailman/listinfo/mediawiki-announce">low-traffic
 		release announcements mailing list</a>.
 	</li>
 </ul>
@@ -281,6 +295,8 @@ class ConfigData {
 <p><em>Please include all of the lines below when reporting installation problems.</em></p>
 <ul class="env-check">
 <?php
+$mainListOpened = true;
+
 $endl = "
 ";
 define( 'MW_NO_OUTPUT_BUFFER', 1 );
@@ -289,7 +305,7 @@ $conf = new ConfigData;
 install_version_checks();
 $self = 'Installer'; # Maintenance script name, to please Setup.php
 
-print "<li>PHP " . phpversion() . " installed</li>\n";
+print "<li>PHP " . htmlspecialchars( phpversion() ) . " installed</li>\n";
 
 error_reporting( 0 );
 $phpdatabases = array();
@@ -310,7 +326,8 @@ if (!$phpdatabases) {
 		print "<li>For <b>$full</b>, compile PHP using <b>--with-$comp</b>, "
 			."or install the $comp.so module</li>\n";
 	}
-	dieout( "</ul></ul>" );
+	echo '</ul>';
+	dieout( '' );
 }
 
 print "<li>Found database drivers for:";
@@ -325,7 +342,7 @@ foreach (array_keys($ourdb) AS $db) {
 }
 print "</li>\n";
 
-if( ini_get( "register_globals" ) ) {
+if( wfIniGetBool( "register_globals" ) ) {
 	?>
 	<li>
 		<div style="font-size:110%">
@@ -339,44 +356,44 @@ if( ini_get( "register_globals" ) ) {
 
 $fatal = false;
 
-if( ini_get( "magic_quotes_runtime" ) ) {
+if( wfIniGetBool( "magic_quotes_runtime" ) ) {
 	$fatal = true;
 	?><li class='error'><strong>Fatal: <a href='http://www.php.net/manual/en/ref.info.php#ini.magic-quotes-runtime'>magic_quotes_runtime</a> is active!</strong>
 	This option corrupts data input unpredictably; you cannot install or use
-	MediaWiki unless this option is disabled.
+	MediaWiki unless this option is disabled.</li>
 	<?php
 }
 
-if( ini_get( "magic_quotes_sybase" ) ) {
+if( wfIniGetBool( "magic_quotes_sybase" ) ) {
 	$fatal = true;
 	?><li class='error'><strong>Fatal: <a href='http://www.php.net/manual/en/ref.sybase.php#ini.magic-quotes-sybase'>magic_quotes_sybase</a> is active!</strong>
 	This option corrupts data input unpredictably; you cannot install or use
-	MediaWiki unless this option is disabled.
+	MediaWiki unless this option is disabled.</li>
 	<?php
 }
 
-if( ini_get( "mbstring.func_overload" ) ) {
+if( wfIniGetBool( "mbstring.func_overload" ) ) {
 	$fatal = true;
 	?><li class='error'><strong>Fatal: <a href='http://www.php.net/manual/en/ref.mbstring.php#mbstring.overload'>mbstring.func_overload</a> is active!</strong>
 	This option causes errors and may corrupt data unpredictably;
-	you cannot install or use MediaWiki unless this option is disabled.
+	you cannot install or use MediaWiki unless this option is disabled.</li>
 	<?php
 }
 
-if( ini_get( "zend.ze1_compatibility_mode" ) ) {
+if( wfIniGetBool( "zend.ze1_compatibility_mode" ) ) {
 	$fatal = true;
 	?><li class="error"><strong>Fatal: <a href="http://www.php.net/manual/en/ini.core.php">zend.ze1_compatibility_mode</a> is active!</strong>
 	This option causes horrible bugs with MediaWiki; you cannot install or use
-	MediaWiki unless this option is disabled.
+	MediaWiki unless this option is disabled.</li>
 	<?php
 }
 
 
 if( $fatal ) {
-	dieout( "</ul><p>Cannot install MediaWiki.</p>" );
+	dieout( "Cannot install MediaWiki." );
 }
 
-if( ini_get( "safe_mode" ) ) {
+if( wfIniGetBool( "safe_mode" ) ) {
 	$conf->safeMode = true;
 	?>
 	<li><b class='error'>Warning:</b> <strong>PHP's
@@ -388,7 +405,7 @@ if( ini_get( "safe_mode" ) ) {
 	$conf->safeMode = false;
 }
 
-$sapi = php_sapi_name();
+$sapi = htmlspecialchars( php_sapi_name() );
 print "<li>PHP server API is $sapi; ";
 $script = defined('MW_INSTALL_PHP5_EXT') ? 'index.php5' : 'index.php';
 if( $wgUsePathInfo ) {
@@ -465,11 +482,11 @@ if ( $conf->turck ) {
 
 $conf->xcache = function_exists( 'xcache_get' );
 if( $conf->xcache )
-	print "<li><a href=\"http://trac.lighttpd.net/xcache/\">XCache</a> installed</li>";
+	print "<li><a href=\"http://trac.lighttpd.net/xcache/\">XCache</a> installed</li>\n";
 
 $conf->apc = function_exists('apc_fetch');
 if ($conf->apc ) {
-	print "<li><a href=\"http://www.php.net/apc\">APC</a> installed</li>";
+	print "<li><a href=\"http://www.php.net/apc\">APC</a> installed</li>\n";
 }
 
 $conf->eaccel = function_exists( 'eaccelerator_get' );
@@ -477,6 +494,8 @@ if ( $conf->eaccel ) {
 	$conf->turck = 'eaccelerator';
 	print "<li><a href=\"http://eaccelerator.sourceforge.net/\">eAccelerator</a> installed</li>\n";
 }
+
+$conf->dba = function_exists( 'dba_open' );
 
 if( !( $conf->turck || $conf->eaccel || $conf->apc || $conf->xcache ) ) {
 	echo( '<li>Couldn\'t find <a href="http://turck-mmcache.sourceforge.net">Turck MMCache</a>,
@@ -514,7 +533,7 @@ $conf->ImageMagick = false;
 $imcheck = array( "/usr/bin", "/opt/csw/bin", "/usr/local/bin", "/sw/bin", "/opt/local/bin" );
 foreach( $imcheck as $dir ) {
 	$im = "$dir/convert";
-	if( file_exists( $im ) ) {
+	if( @file_exists( $im ) ) {
 		print "<li>Found ImageMagick: <tt>$im</tt>; image thumbnailing will be enabled if you enable uploads.</li>\n";
 		$conf->ImageMagick = $im;
 		break;
@@ -569,9 +588,10 @@ print "<li style='font-weight:bold;color:green;font-size:110%'>Environment check
 		: $_SERVER["SERVER_ADMIN"];
 	$conf->EmergencyContact = importPost( "EmergencyContact", $defaultEmail );
 	$conf->DBtype = importPost( "DBtype", $DefaultDBtype );
-?>
+	if ( !isset( $ourdb[$conf->DBtype] ) ) {
+		$conf->DBtype = $DefaultDBtype;
+	}
 
-<?php
 	$conf->DBserver = importPost( "DBserver", "localhost" );
 	$conf->DBname = importPost( "DBname", "wikidb" );
 	$conf->DBuser = importPost( "DBuser", "wikiuser" );
@@ -584,23 +604,31 @@ print "<li style='font-weight:bold;color:green;font-size:110%'>Environment check
 	$conf->RootPW = importPost( "RootPW", "" );
 	$useRoot = importCheck( 'useroot', false );
 	$conf->LanguageCode = importPost( "LanguageCode", "en" );
-
 	## MySQL specific:
 	$conf->DBprefix     = importPost( "DBprefix" );
 	$conf->setSchema( 
-		importPost( "DBschema", "mysql4" ), 
+		importPost( "DBschema", "mysql5-binary" ), 
 		importPost( "DBengine", "InnoDB" ) );
 
 	## Postgres specific:
 	$conf->DBport      = importPost( "DBport",      "5432" );
 	$conf->DBmwschema  = importPost( "DBmwschema",  "mediawiki" );
 	$conf->DBts2schema = importPost( "DBts2schema", "public" );
+	
+	## SQLite specific
+	$conf->SQLiteDataDir = importPost( "SQLiteDataDir", "" );
+	
+	## MSSQL specific
+	// We need a second field so it doesn't overwrite the MySQL one
+	$conf->DBprefix2 = importPost( "DBprefix2" );
+
+	$conf->ShellLocale = getShellLocale( $conf->LanguageCode );
 
 /* Check for validity */
 $errs = array();
 
-if( $conf->Sitename == "" || $conf->Sitename == "MediaWiki" || $conf->Sitename == "Mediawiki" ) {
-	$errs["Sitename"] = "Must not be blank or \"MediaWiki\"";
+if( preg_match( '/^$|^mediawiki$|#/i', $conf->Sitename ) ) {
+	$errs["Sitename"] = "Must not be blank or \"MediaWiki\" and may not contain \"#\"";
 }
 if( $conf->DBuser == "" ) {
 	$errs["DBuser"] = "Must not be blank";
@@ -662,13 +690,23 @@ if( $conf->SysopName ) {
 }
 
 $conf->License = importRequest( "License", "none" );
-if( $conf->License == "gfdl" ) {
-	$conf->RightsUrl = "http://www.gnu.org/copyleft/fdl.html";
+if( $conf->License == "gfdl1_2" ) {
+	$conf->RightsUrl = "http://www.gnu.org/licenses/old-licenses/fdl-1.2.txt";
 	$conf->RightsText = "GNU Free Documentation License 1.2";
-	$conf->RightsCode = "gfdl";
+	$conf->RightsCode = "gfdl1_2";
+	$conf->RightsIcon = '${wgScriptPath}/skins/common/images/gnu-fdl.png';
+} elseif( $conf->License == "gfdl1_3" ) {
+	$conf->RightsUrl = "http://www.gnu.org/copyleft/fdl.html";
+	$conf->RightsText = "GNU Free Documentation License 1.3";
+	$conf->RightsCode = "gfdl1_3";
 	$conf->RightsIcon = '${wgScriptPath}/skins/common/images/gnu-fdl.png';
 } elseif( $conf->License == "none" ) {
 	$conf->RightsUrl = $conf->RightsText = $conf->RightsCode = $conf->RightsIcon = "";
+} elseif( $conf->License == "pd" ) {
+	$conf->RightsUrl = "http://creativecommons.org/licenses/publicdomain/";
+	$conf->RightsText = "Public Domain";
+	$conf->RightsCode = "pd";
+	$conf->RightsIcon = '${wgScriptPath}/skins/common/images/public-domain.png';
 } else {
 	$conf->RightsUrl = importRequest( "RightsUrl", "" );
 	$conf->RightsText = importRequest( "RightsText", "" );
@@ -714,13 +752,12 @@ if( $conf->posted && ( 0 == count( $errs ) ) ) {
 		chdir( ".." );
 		$ok = eval( $local );
 		if( $ok === false ) {
-			dieout( "Errors in generated configuration; " .
+			dieout( "<p>Errors in generated configuration; " .
 				"most likely due to a bug in the installer... " .
-				"Config file was: " .
+				"Config file was: </p>" .
 				"<pre>" .
 				htmlspecialchars( $local ) .
-				"</pre>" .
-				"</ul>" );
+				"</pre>" );
 		}
 		$conf->DBtypename = '';
 		foreach (array_keys($ourdb) as $db) {
@@ -736,7 +773,7 @@ if( $conf->posted && ( 0 == count( $errs ) ) ) {
 			$errs["DBtype"] = "Unknown database type '$conf->DBtype'";
 			continue;
 		}
-		print "<li>Database type: {$conf->DBtypename}</li>\n";
+		print "<li>Database type: " . htmlspecialchars( $conf->DBtypename ) . "</li>\n";
 		$dbclass = 'Database'.ucfirst($conf->DBtype);
 		$wgDBtype = $conf->DBtype;
 		$wgDBadminuser = "root";
@@ -750,14 +787,21 @@ if( $conf->posted && ( 0 == count( $errs ) ) ) {
 		$wgDBmwschema  = $conf->DBmwschema;
 		$wgDBts2schema = $conf->DBts2schema;
 
+		if( $conf->DBprefix2 != '' ) {
+			// For MSSQL
+			$wgDBprefix = $conf->DBprefix2;
+		}
+
 		$wgCommandLineMode = true;
+		if (! defined ( 'STDERR' ) )
+			define( 'STDERR', fopen("php://stderr", "wb"));
 		$wgUseDatabaseMessages = false; /* FIXME: For database failure */
 		require_once( "$IP/includes/Setup.php" );
 		chdir( "config" );
 
 		$wgTitle = Title::newFromText( "Installation script" );
 		error_reporting( E_ALL );
-		print "<li>Loading class: $dbclass";
+		print "<li>Loading class: " . htmlspecialchars( $dbclass ) . "</li>\n";
 		$dbc = new $dbclass;
 
 		if( $conf->DBtype == 'mysql' ) {
@@ -781,7 +825,7 @@ if( $conf->posted && ( 0 == count( $errs ) ) ) {
 			}
 
 			# Attempt to connect
-			echo( "<li>Attempting to connect to database server as $db_user..." );
+			echo( "<li>Attempting to connect to database server as " . htmlspecialchars( $db_user ) . "..." );
 			$wgDatabase = Database::newFromParams( $wgDBserver, $db_user, $db_pass, '', 1 );
 
 			# Check the connection and respond to errors
@@ -816,7 +860,7 @@ if( $conf->posted && ( 0 == count( $errs ) ) ) {
 					case 2003:
 					default:
 						# General connection problem
-						echo( "failed with error [$errno] $errtx.</li>\n" );
+						echo( htmlspecialchars( "failed with error [$errno] $errtx." ) . "</li>\n" );
 						$errs["DBserver"] = "Connection failed";
 						break;
 				} # switch
@@ -824,40 +868,45 @@ if( $conf->posted && ( 0 == count( $errs ) ) ) {
 
 			if( !$ok ) { continue; }
 
-		} else /* not mysql */ {
+		} else { # not mysql
 			error_reporting( E_ALL );
 			$wgSuperUser = '';
 			## Possible connect as a superuser
-			if( $useRoot ) {
+			if( $useRoot && $conf->DBtype != 'sqlite' ) {
 				$wgDBsuperuser = $conf->RootUser;
-				echo( "<li>Attempting to connect to database \"postgres\" as superuser \"$wgDBsuperuser\"..." );
+				echo( "<li>Attempting to connect to database \"postgres\" as superuser \"" . 
+					htmlspecialchars( $wgDBsuperuser ) . "\"..." );
 				$wgDatabase = $dbc->newFromParams($wgDBserver, $wgDBsuperuser, $conf->RootPW, "postgres", 1);
 				if (!$wgDatabase->isOpen()) {
-					print " error: " . $wgDatabase->lastError() . "</li>\n";
+					print " error: " . htmlspecialchars( $wgDatabase->lastError() ) . "</li>\n";
 					$errs["DBserver"] = "Could not connect to database as superuser";
 					$errs["RootUser"] = "Check username";
 					$errs["RootPW"] = "and password";
 					continue;
 				}
+				$wgDatabase->initial_setup($conf->RootPW, 'postgres');
 			}
-			echo( "<li>Attempting to connect to database \"$wgDBname\" as \"$wgDBuser\"..." );
+			echo( "<li>Attempting to connect to database \"" . htmlspecialchars( $wgDBname ) . 
+				"\" as \"" . htmlspecialchars( $wgDBuser ) . "\"..." );
 			$wgDatabase = $dbc->newFromParams($wgDBserver, $wgDBuser, $wgDBpassword, $wgDBname, 1);
 			if (!$wgDatabase->isOpen()) {
-				print " error: " . $wgDatabase->lastError() . "</li>\n";
+				print " error: " . htmlspecialchars( $wgDatabase->lastError() ) . "</li>\n";
 			} else {
 				$myver = $wgDatabase->getServerVersion();
 			}
-		}
+			if (is_callable(array($wgDatabase, 'initial_setup'))) $wgDatabase->initial_setup('', $wgDBname);
+		} 
 
 		if ( !$wgDatabase->isOpen() ) {
 			$errs["DBserver"] = "Couldn't connect to database";
 			continue;
 		}
 
-		print "<li>Connected to $myver";
+		print "<li>Connected to " . htmlspecialchars( "{$conf->DBtype} $myver" );
 		if ($conf->DBtype == 'mysql') {
 			if( version_compare( $myver, "4.0.14" ) < 0 ) {
-				dieout( " -- mysql 4.0.14 or later required. Aborting." );
+				print "</li>\n";
+				dieout( "-- mysql 4.0.14 or later required. Aborting." );
 			}
 			$mysqlNewAuth = version_compare( $myver, "4.1.0", "ge" );
 			if( $mysqlNewAuth && $mysqlOldClient ) {
@@ -904,8 +953,8 @@ if( $conf->posted && ( 0 == count( $errs ) ) ) {
 			$wgDatabase->selectDB( $wgDBname );
 		}
 		else if ($conf->DBtype == 'postgres') {
-			if( version_compare( $myver, "PostgreSQL 8.0" ) < 0 ) {
-				dieout( " <b>Postgres 8.0 or later is required</b>. Aborting.</li></ul>" );
+			if( version_compare( $myver, "8.0" ) < 0 ) {
+				dieout( "<b>Postgres 8.0 or later is required</b>. Aborting." );
 			}
 		}
 
@@ -940,15 +989,19 @@ if( $conf->posted && ( 0 == count( $errs ) ) ) {
 						}
 					}
 					if ( $existingSchema && $existingSchema != $conf->DBschema ) {
-						print "<li><strong>Warning:</strong> you requested the {$conf->DBschema} schema, " .
-							"but the existing database has the $existingSchema schema. This upgrade script ". 
-							"can't convert it, so it will remain $existingSchema.</li>\n";
+						$encExisting = htmlspecialchars( $existingSchema );
+						$encRequested = htmlspecialchars( $conf->DBschema );
+						print "<li><strong>Warning:</strong> you requested the $encRequested schema, " .
+							"but the existing database has the $encExisting schema. This upgrade script ". 
+							"can't convert it, so it will remain $encExisting.</li>\n";
 						$conf->setSchema( $existingSchema, $conf->DBengine );
 					}
 					if ( $existingEngine && $existingEngine != $conf->DBengine ) {
-						print "<li><strong>Warning:</strong> you requested the {$conf->DBengine} storage " .
-							"engine, but the existing database uses the $existingEngine engine. This upgrade " .
-							"script can't convert it, so it will remain $existingEngine.</li>\n";
+						$encExisting = htmlspecialchars( $existingEngine );
+						$encRequested = htmlspecialchars( $conf->DBengine );
+						print "<li><strong>Warning:</strong> you requested the $encRequested storage " .
+							"engine, but the existing database uses the $encExisting engine. This upgrade " .
+							"script can't convert it, so it will remain $encExisting.</li>\n";
 						$conf->setSchema( $conf->DBschema, $existingEngine );
 					}
 				}
@@ -989,7 +1042,8 @@ if( $conf->posted && ( 0 == count( $errs ) ) ) {
 				}
 				$wgDatabase->freeResult( $res );
 				if ( !$found && $conf->DBengine != 'MyISAM' ) {
-					echo "<li><strong>Warning:</strong> {$conf->DBengine} storage engine not available, " .
+					echo "<li><strong>Warning:</strong> " . htmlspecialchars( $conf->DBengine ) . 
+						" storage engine not available, " .
 						"using MyISAM instead</li>\n";
 					$conf->setSchema( $conf->DBschema, 'MyISAM' );
 				}
@@ -1000,7 +1054,7 @@ if( $conf->posted && ( 0 == count( $errs ) ) ) {
 			if ($conf->DBtype == 'mysql') {
 				dbsource( "../maintenance/tables.sql", $wgDatabase );
 				dbsource( "../maintenance/interwiki.sql", $wgDatabase );
-			} else if ($conf->DBtype == 'postgres') {
+			} elseif (is_callable(array($wgDatabase, 'setup_database'))) {
 				$wgDatabase->setup_database();
 			}
 			else {
@@ -1010,12 +1064,16 @@ if( $conf->posted && ( 0 == count( $errs ) ) ) {
 
 			print " done.</li>\n";
 
-			print "<li>Initializing data...</li>\n";
+			print "<li>Initializing statistics...</li>\n";
 			$wgDatabase->insert( 'site_stats',
 				array ( 'ss_row_id'        => 1,
 						'ss_total_views'   => 0,
-						'ss_total_edits'   => 0,
-						'ss_good_articles' => 0 ) );
+						'ss_total_edits'   => 1, # Main page first edit
+						'ss_good_articles' => 0, # Main page is not a good article - no internal link
+						'ss_total_pages'   => 1, # Main page
+						'ss_users'         => $conf->SysopName ? 1 : 0, # Sysop account, if created
+						'ss_admins'        => $conf->SysopName ? 1 : 0, # Sysop account, if created
+						'ss_images'        => 0 ) );
 
 			# Set up the "regular user" account *if we can, and if we need to*
 			if( $conf->Root and $conf->DBtype == 'mysql') {
@@ -1024,10 +1082,10 @@ if( $conf->posted && ( 0 == count( $errs ) ) ) {
 				if( $wgDatabase2->isOpen() ) {
 					# Nope, just close the test connection and continue
 					$wgDatabase2->close();
-					echo( "<li>User $wgDBuser exists. Skipping grants.</li>\n" );
+					echo( "<li>User " . htmlspecialchars( $wgDBuser ) . " exists. Skipping grants.</li>\n" );
 				} else {
 					# Yes, so run the grants
-					echo( "<li>Granting user permissions to $wgDBuser on $wgDBname..." );
+					echo( "<li>" . htmlspecialchars( "Granting user permissions to $wgDBuser on $wgDBname..." ) );
 					dbsource( "../maintenance/users.sql", $wgDatabase );
 					echo( "success.</li>\n" );
 				}
@@ -1078,27 +1136,26 @@ if( $conf->posted && ( 0 == count( $errs ) ) ) {
 		$f = fopen( "LocalSettings.php", 'xt' );
 
 		if( $f == false ) {
+			print( "</li>\n" );
 			dieout( "<p>Couldn't write out LocalSettings.php. Check that the directory permissions are correct and that there isn't already a file of that name here...</p>\n" .
 			"<p>Here's the file that would have been written, try to paste it into place manually:</p>\n" .
 			"<pre>\n" . htmlspecialchars( $localSettings ) . "</pre>\n" );
 		}
 		if(fwrite( $f, $localSettings ) ) {
 			fclose( $f );
-			print "</li></ul><hr/>\n";
+			print "<hr/>\n";
 			writeSuccessMessage();
+			print "</li>\n";
 		} else {
 			fclose( $f );
-			die("<p class='error'>An error occured while writing the config/LocalSettings.php file. Check user rights and disk space then try again.</p>\n");
-			print "</li></ul>\n";
+			dieout( "<p class='error'>An error occured while writing the config/LocalSettings.php file. Check user rights and disk space then try again.</p></li>\n" );
 		}
 
 	} while( false );
 }
-?>
-</ul>
 
-
-<?php
+print "</ul>\n";
+$mainListOpened = false;
 
 if( count( $errs ) ) {
 	/* Display options form */
@@ -1110,39 +1167,32 @@ if( count( $errs ) ) {
 
 <form action="<?php echo defined('MW_INSTALL_PHP5_EXT') ? 'index.php5' : 'index.php'; ?>" name="config" method="post">
 
-
 <h2>Site config</h2>
 
 <div class="config-section">
 	<div class="config-input">
-		<?php
-		aField( $conf, "Sitename", "Wiki name:" );
-		?>
+		<?php aField( $conf, "Sitename", "Wiki name:" ); ?>
 	</div>
 	<p class="config-desc">
 		Preferably a short word without punctuation, i.e. "Wikipedia".<br />
 		Will appear as the namespace name for "meta" pages, and throughout the interface.
 	</p>
-
-	<div class="config-input">
-		<?php
-		aField( $conf, "EmergencyContact", "Contact e-mail:" );
-		?>
-	</div>
+	<div class="config-input"><?php aField( $conf, "EmergencyContact", "Contact e-mail:" ); ?></div>
 	<p class="config-desc">
 		Displayed to users in some error messages, used as the return address for password reminders, and used as the default sender address of e-mail notifications.
 	</p>
 
 	<div class="config-input">
 		<label class='column' for="LanguageCode">Language:</label>
-		<select id="LanguageCode" name="LanguageCode">
-
-		<?php
+		<select id="LanguageCode" name="LanguageCode"><?php
 			$list = getLanguageList();
 			foreach( $list as $code => $name ) {
 				$sel = ($code == $conf->LanguageCode) ? 'selected="selected"' : '';
-				echo "\t\t<option value=\"$code\" $sel>$name</option>\n";
+				$encCode = htmlspecialchars( $code );
+				$encName = htmlspecialchars( $name );
+				echo "\n\t\t<option value=\"$encCode\" $sel>$encName</option>";
 			}
+			echo "\n";
 		?>
 		</select>
 	</div>
@@ -1155,7 +1205,9 @@ if( count( $errs ) ) {
 
 		<ul class="plain">
 		<li><?php aField( $conf, "License", "No license metadata", "radio", "none" ); ?></li>
-		<li><?php aField( $conf, "License", "GNU Free Documentation License 1.2 (Wikipedia-compatible)", "radio", "gfdl" ); ?></li>
+		<li><?php aField( $conf, "License", "Public Domain", "radio", "pd" ); ?></li>
+		<li><?php aField( $conf, "License", "GNU Free Documentation License 1.2 (Wikipedia-compatible)", "radio", "gfdl1_2" ); ?></li>
+		<li><?php aField( $conf, "License", "GNU Free Documentation License 1.3", "radio", "gfdl1_3" ); ?></li>
 		<li><?php
 			aField( $conf, "License", "A Creative Commons license - ", "radio", "cc" );
 			$partner = "MediaWiki";
@@ -1164,15 +1216,14 @@ if( count( $errs ) ) {
 			$icon = urlencode( "$wgServer$wgUploadPath/wiki.png" );
 			$ccApp = htmlspecialchars( "http://creativecommons.org/license/?partner=$partner&exit_url=$exit&partner_icon_url=$icon" );
 			print "<a href=\"$ccApp\" target='_blank'>choose</a>";
-			?>
-		<?php if( $conf->License == "cc" ) { ?>
+			if( $conf->License == "cc" ) { ?>
 			<ul>
-				<li><?php aField( $conf, "RightsIcon", "<img src=\"" . htmlspecialchars( $conf->RightsIcon ) . "\" alt='(Creative Commons icon)' />", "hidden" ); ?></li>
-				<li><?php aField( $conf, "RightsText", htmlspecialchars( $conf->RightsText ), "hidden" ); ?></li>
-				<li><?php aField( $conf, "RightsCode", "code: " . htmlspecialchars( $conf->RightsCode ), "hidden" ); ?></li>
-				<li><?php aField( $conf, "RightsUrl", "<a href=\"" . htmlspecialchars( $conf->RightsUrl ) . "\">" . htmlspecialchars( $conf->RightsUrl ) . "</a>", "hidden" ); ?></li>
+			<li><?php aField( $conf, "RightsIcon", "<img src=\"" . htmlspecialchars( $conf->RightsIcon ) . "\" alt='(Creative Commons icon)' />", "hidden" ); ?></li>
+			<li><?php aField( $conf, "RightsText", htmlspecialchars( $conf->RightsText ), "hidden" ); ?></li>
+			<li><?php aField( $conf, "RightsCode", "code: " . htmlspecialchars( $conf->RightsCode ), "hidden" ); ?></li>
+			<li><?php aField( $conf, "RightsUrl", "<a href=\"" . htmlspecialchars( $conf->RightsUrl ) . "\">" . htmlspecialchars( $conf->RightsUrl ) . "</a>", "hidden" ); ?></li>
 			</ul>
-		<?php } ?>
+			<?php } ?>
 			</li>
 		</ul>
 	</div>
@@ -1198,7 +1249,7 @@ if( count( $errs ) ) {
 	</p>
 
 	<div class="config-input">
-		<label class='column'>Shared memory caching:</label>
+		<label class='column'>Object caching:</label>
 
 		<ul class="plain">
 		<li><?php aField( $conf, "Shm", "No caching", "radio", "none" ); ?></li>
@@ -1206,21 +1257,26 @@ if( count( $errs ) ) {
 			if ( $conf->turck ) {
 				echo "<li>";
 				aField( $conf, "Shm", "Turck MMCache", "radio", "turck" );
-				echo "</li>";
+				echo "</li>\n";
 			}
 			if( $conf->xcache ) {
-				echo( '<li>' );
+				echo "<li>";
 				aField( $conf, 'Shm', 'XCache', 'radio', 'xcache' );
-				echo( '</li>' );
+				echo "</li>\n";
 			}
 			if ( $conf->apc ) {
 				echo "<li>";
 				aField( $conf, "Shm", "APC", "radio", "apc" );
-				echo "</li>";
+				echo "</li>\n";
 			}
 			if ( $conf->eaccel ) {
 				echo "<li>";
 				aField( $conf, "Shm", "eAccelerator", "radio", "eaccel" );
+				echo "</li>\n";
+			}
+			if ( $conf->dba ) {
+				echo "<li>";
+				aField( $conf, "Shm", "DBA (not recommended)", "radio", "dba" );
 				echo "</li>";
 			}
 		?>
@@ -1234,6 +1290,9 @@ if( count( $errs ) ) {
 		<br /><br />
 		MediaWiki can also detect and support eAccelerator, Turck MMCache, APC, and XCache, but
 		these should not be used if the wiki will be running on multiple application servers.
+		<br/><br/>
+		DBA (Berkeley-style DB) is generally slower than using no cache at all, and is only 
+		recommended for testing.
 	</p>
 </div>
 
@@ -1288,7 +1347,7 @@ if( count( $errs ) ) {
 	</div>
 	<div class="config-desc">
 		<p>If this option is enabled, users have to confirm their e-mail address using a magic link sent to them whenever they set or change it, and only authenticated e-mail addresses can receive mails from other users and/or
-		change notification mails. Setting this option is <B>recommended</B> for public wikis because of potential abuse of the e-mail features above.</p>
+		change notification mails. Setting this option is <b>recommended</b> for public wikis because of potential abuse of the e-mail features above.</p>
 	</div>
 
 </div>
@@ -1297,30 +1356,28 @@ if( count( $errs ) ) {
 
 <div class="config-section">
 <div class="config-input">
-		<label class='column'>Database type:</label>
-<?php if (isset($errs['DBpicktype'])) print "<span class='error'>$errs[DBpicktype]</span>\n"; ?>
-		<ul class='plain'><?php database_picker($conf) ?></ul>
+	<label class='column'>Database type:</label>
+<?php 
+	if (isset($errs['DBpicktype'])) {
+		print "\t<span class='error'>" . htmlspecialchars( $errs['DBpicktype'] ) . "</span>\n";
+	}
+?>
+	<ul class='plain'><?php 
+		database_picker($conf); 
+	?></ul>
 	</div>
 
-	<div class="config-input" style="clear:left"><?php
-		aField( $conf, "DBserver", "Database host:" );
-	?></div>
+	<div class="config-input" style="clear:left">
+	<?php aField( $conf, "DBserver", "Database host:" ); ?>
+	</div>
 	<p class="config-desc">
 		If your database server isn't on your web server, enter the name or IP address here.
 	</p>
 
-	<div class="config-input"><?php
-		aField( $conf, "DBname", "Database name:" );
-	?></div>
-	<div class="config-input"><?php
-		aField( $conf, "DBuser", "DB username:" );
-	?></div>
-	<div class="config-input"><?php
-		aField( $conf, "DBpassword", "DB password:", "password" );
-	?></div>
-	<div class="config-input"><?php
-		aField( $conf, "DBpassword2", "DB password confirm:", "password" );
-	?></div>
+	<div class="config-input"><?php aField( $conf, "DBname", "Database name:" ); ?></div>
+	<div class="config-input"><?php aField( $conf, "DBuser", "DB username:" ); ?></div>
+	<div class="config-input"><?php aField( $conf, "DBpassword", "DB password:", "password" ); ?></div>
+	<div class="config-input"><?php aField( $conf, "DBpassword2", "DB password confirm:", "password" ); ?></div>
 	<p class="config-desc">
 		If you only have a single user account and database available,
 		enter those here. If you have database root access (see below)
@@ -1331,19 +1388,11 @@ if( count( $errs ) ) {
 
 	<div class="config-input">
 		<label class="column">Superuser account:</label>
-		<input type="checkbox" name="useroot" id="useroot" <?php if( $useRoot ) { ?>checked="checked" <?php } ?>/>
+		<input type="checkbox" name="useroot" id="useroot" <?php if( $useRoot ) { ?>checked="checked" <?php } ?> />
 		&nbsp;<label for="useroot">Use superuser account</label>
 	</div>
-	<div class="config-input">
-		<?php
-		aField( $conf, "RootUser", "Superuser name:", "superuser" );
-		?>
-	</div>
-	<div class="config-input">
-		<?php
-		aField( $conf, "RootPW", "Superuser password:", "password" );
-		?>
-	</div>
+	<div class="config-input"><?php aField( $conf, "RootUser", "Superuser name:", "text" ); ?></div>
+	<div class="config-input"><?php aField( $conf, "RootPW", "Superuser password:", "password" ); ?></div>
 
 	<p class="config-desc">
 		If the database user specified above does not exist, or does not have access to create
@@ -1352,9 +1401,7 @@ if( count( $errs ) ) {
 	</p>
 
 	<?php database_switcher('mysql'); ?>
-	<div class="config-input"><?php
-		aField( $conf, "DBprefix", "Database table prefix:" );
-	?></div>
+	<div class="config-input"><?php aField( $conf, "DBprefix", "Database table prefix:" ); ?></div>
 	<div class="config-desc">
 		<p>If you need to share one database between multiple wikis, or
 		between MediaWiki and another web application, you may choose to
@@ -1378,29 +1425,24 @@ if( count( $errs ) ) {
 	<div class="config-input"><label class="column">Database character set</label>
 		<div>Select one:</div>
 		<ul class="plain">
-		<li><?php aField( $conf, "DBschema", "Backwards-compatible UTF-8", "radio", "mysql4" ); ?></li>
-		<li><?php aField( $conf, "DBschema", "Experimental MySQL 4.1/5.0 UTF-8", "radio", "mysql5" ); ?></li>
-		<li><?php aField( $conf, "DBschema", "Experimental MySQL 4.1/5.0 binary", "radio", "mysql5-binary" ); ?></li>
+		<li><?php aField( $conf, "DBschema", "MySQL 4.1/5.0 binary", "radio", "mysql5-binary" ); ?></li>
+		<li><?php aField( $conf, "DBschema", "MySQL 4.1/5.0 UTF-8", "radio", "mysql5" ); ?></li>
+		<li><?php aField( $conf, "DBschema", "MySQL 4.0 backwards-compatible UTF-8", "radio", "mysql4" ); ?></li>
 		</ul>
 	</div>
 	<p class="config-desc">
-		<b>EXPERIMENTAL:</b> You can enable explicit Unicode charset support
-		for MySQL 4.1 and 5.0 servers. This is not well tested and may
-		cause things to break. <b>If upgrading an older installation, leave
-		in backwards-compatible mode.</b>
+		This option is ignored on upgrade, the same character set will be kept. 
+		<br/><br/>
+		<b>WARNING:</b> If you use <b>backwards-compatible UTF-8</b> on MySQL 4.1+, and subsequently back up the database with <tt>mysqldump</tt>, it may destroy all non-ASCII characters, irreversibly corrupting your backups!.
+		<br/><br/>
+		In <b>binary mode</b>, MediaWiki stores UTF-8 text to the database in binary fields. This is more efficient than MySQL's UTF-8 mode, and allows you to use the full range of Unicode characters. In <b>UTF-8 mode</b>, MySQL will know what character set your data is in, and can present and convert it appropriately, but it won't let you store characters above the <a target="_blank" href="http://en.wikipedia.org/wiki/Mapping_of_Unicode_character_planes">Basic Multilingual Plane</a>.
 	</p>
-	</div>
+	</fieldset>
 
 	<?php database_switcher('postgres'); ?>
-	<div class="config-input"><?php
-		aField( $conf, "DBport", "Database port:" );
-	?></div>
-	<div class="config-input"><?php
-		aField( $conf, "DBmwschema", "Schema for mediawiki:" );
-	?></div>
-	<div class="config-input"><?php
-		aField( $conf, "DBts2schema", "Schema for tsearch2:" );
-	?></div>
+	<div class="config-input"><?php aField( $conf, "DBport", "Database port:" ); ?></div>
+	<div class="config-input"><?php aField( $conf, "DBmwschema", "Schema for mediawiki:" ); ?></div>
+	<div class="config-input"><?php aField( $conf, "DBts2schema", "Schema for tsearch2:" ); ?></div>
 	<div class="config-desc">
 		<p>The username specified above (at "DB username") will have its search path set to the above schemas, 
 		so it is recommended that you create a new user. The above schemas are generally correct: 
@@ -1408,30 +1450,64 @@ if( count( $errs ) ) {
 	</div>
 	</fieldset>
 
+	<?php 
+		# SQLITE DISABLED -- USE MEDIAWIKI 1.15
+		if (false):
+	?>
+	<?php database_switcher('sqlite'); ?>
+	<div class="config-desc">
+		<b>NOTE:</b> SQLite only uses the <i>Database name</i> setting above, the user, password and root settings are ignored.
+	</div>
+	<div class="config-input"><?php
+		aField( $conf, "SQLiteDataDir", "SQLite data directory:" );
+	?></div>
+	<div class="config-desc">
+		<p>SQLite stores table data into files in the filesystem.
+		If you do not provide an explicit path, a "data" directory in
+		the parent of your document root will be used.</p>
+		
+		<p>This directory must exist and be writable by the web server.</p>
+	</div>
+	</fieldset>
+
+	<?php 
+		# SQLITE DISABLED -- USE MEDIAWIKI 1.15
+		endif
+	?>
+
+	<?php database_switcher('mssql'); ?>
+	<div class="config-input"><?php
+		aField( $conf, "DBprefix2", "Database table prefix:" );
+	?></div>
+	<div class="config-desc">
+		<p>If you need to share one database between multiple wikis, or
+		between MediaWiki and another web application, you may choose to
+		add a prefix to all the table names to avoid conflicts.</p>
+
+		<p>Avoid exotic characters; something like <tt>mw_</tt> is good.</p>
+	</div>
+	</fieldset>
+
 	<div class="config-input" style="padding:2em 0 3em">
 		<label class='column'>&nbsp;</label>
 		<input type="submit" value="Install MediaWiki!" class="btn-install" />
 	</div>
-
 </div>
-
+</form>
 <script type="text/javascript">
-window.onload = toggleDBarea('<?php echo $conf->DBtype; ?>',
+window.onload = toggleDBarea(<?php echo Xml::encodeJsVar( $conf->DBtype ); ?>,
 <?php
 	## If they passed in a root user name, don't populate it on page load
 	echo strlen(importPost('RootUser', '')) ? 0 : 1;
 ?>);
 </script>
-
-</form>
-
 <?php
 }
 
 /* -------------------------------------------------------------------------------------- */
 function writeSuccessMessage() {
  $script = defined('MW_INSTALL_PHP5_EXT') ? 'index.php5' : 'index.php';
-	if ( ini_get( 'safe_mode' ) && !ini_get( 'open_basedir' ) ) {
+	if ( wfIniGetBool( 'safe_mode' ) && !ini_get( 'open_basedir' ) ) {
 		echo <<<EOT
 <div class="success-box">
 <p>Installation successful!</p>
@@ -1464,6 +1540,9 @@ EOT;
 
 
 function escapePhpString( $string ) {
+	if ( is_array( $string ) || is_object( $string ) ) {
+		return false;
+	}
 	return strtr( $string,
 		array(
 			"\n" => "\\n",
@@ -1482,6 +1561,13 @@ function writeLocalSettings( $conf ) {
 	$rights = ($conf->RightsUrl) ? "" : "# ";
 	$hashedUploads = $conf->safeMode ? '' : '# ';
 
+	if ( $conf->ShellLocale ) {
+		$locale = '';
+	} else {
+		$locale = '# ';
+		$conf->ShellLocale = 'en_US.UTF-8';
+	}
+
 	switch ( $conf->Shm ) {
 		case 'memcached':
 			$cacheType = 'CACHE_MEMCACHED';
@@ -1492,6 +1578,10 @@ function writeLocalSettings( $conf ) {
 		case 'apc':
 		case 'eaccel':
 			$cacheType = 'CACHE_ACCEL';
+			$mcservers = 'array()';
+			break;
+		case 'dba':
+			$cacheType = 'CACHE_DBA';
 			$mcservers = 'array()';
 			break;
 		default:
@@ -1538,10 +1628,40 @@ function writeLocalSettings( $conf ) {
 
 	# Add slashes to strings for double quoting
 	$slconf = array_map( "escapePhpString", get_object_vars( $conf ) );
-	if( $conf->License == 'gfdl' ) {
+	if( $conf->License == 'gfdl1_2' || $conf->License == 'pd' || $conf->License == 'gfdl1_3' ) {
 		# Needs literal string interpolation for the current style path
 		$slconf['RightsIcon'] = $conf->RightsIcon;
 	}
+
+	if( $conf->DBtype == 'mysql' ) {
+		$dbsettings =
+"# MySQL specific settings
+\$wgDBprefix         = \"{$slconf['DBprefix']}\";
+
+# MySQL table options to use during installation or update
+\$wgDBTableOptions   = \"{$slconf['DBTableOptions']}\";
+
+# Experimental charset support for MySQL 4.1/5.0.
+\$wgDBmysql5 = {$conf->DBmysql5};";
+	} elseif( $conf->DBtype == 'postgres' ) {
+		$dbsettings =
+"# Postgres specific settings
+\$wgDBport           = \"{$slconf['DBport']}\";
+\$wgDBmwschema       = \"{$slconf['DBmwschema']}\";
+\$wgDBts2schema      = \"{$slconf['DBts2schema']}\";";
+	} elseif( $conf->DBtype == 'sqlite' ) {
+		$dbsettings =
+"# SQLite-specific settings
+\$wgSQLiteDataDir    = \"{$slconf['SQLiteDataDir']}\";";
+	} elseif( $conf->DBtype == 'mssql' ) {
+		$dbsettings =
+"# MSSQL specific settings
+\$wgDBprefix         = \"{$slconf['DBprefix2']}\";";
+	} else {
+		// ummm... :D
+		$dbsettings = '';
+	}
+
 
 	$localsettings = "
 # This file was automatically generated by the MediaWiki installer.
@@ -1551,6 +1671,9 @@ function writeLocalSettings( $conf ) {
 # See includes/DefaultSettings.php for all configurable settings
 # and their default values, but don't forget to make changes in _this_
 # file, not there.
+#
+# Further documentation for configuration settings may be found at:
+# http://www.mediawiki.org/wiki/Manual:Configuration_settings
 
 # If you customize your file layout, set \$IP to the directory that contains
 # the other MediaWiki files. It will be used as a base to locate files.
@@ -1580,47 +1703,31 @@ if ( \$wgCommandLineMode ) {
 
 ## The URL base path to the directory containing the wiki;
 ## defaults for all runtime URL paths are based off of this.
+## For more information on customizing the URLs please see:
+## http://www.mediawiki.org/wiki/Manual:Short_URL
 \$wgScriptPath       = \"{$slconf['ScriptPath']}\";
 \$wgScriptExtension  = \"{$slconf['ScriptExtension']}\";
 
-## For more information on customizing the URLs please see:
-## http://www.mediawiki.org/wiki/Manual:Short_URL
+## UPO means: this is also a user preference option
 
 \$wgEnableEmail      = $enableemail;
-\$wgEnableUserEmail  = $enableuseremail;
+\$wgEnableUserEmail  = $enableuseremail; # UPO
 
 \$wgEmergencyContact = \"{$slconf['EmergencyContact']}\";
 \$wgPasswordSender = \"{$slconf['PasswordSender']}\";
 
-## For a detailed description of the following switches see
-## http://www.mediawiki.org/wiki/Extension:Email_notification 
-## and http://www.mediawiki.org/wiki/Extension:Email_notification
-## There are many more options for fine tuning available see
-## /includes/DefaultSettings.php
-## UPO means: this is also a user preference option
 \$wgEnotifUserTalk = $enotifusertalk; # UPO
 \$wgEnotifWatchlist = $enotifwatchlist; # UPO
 \$wgEmailAuthentication = $eauthent;
 
+## Database settings
 \$wgDBtype           = \"{$slconf['DBtype']}\";
 \$wgDBserver         = \"{$slconf['DBserver']}\";
 \$wgDBname           = \"{$slconf['DBname']}\";
 \$wgDBuser           = \"{$slconf['DBuser']}\";
 \$wgDBpassword       = \"{$slconf['DBpassword']}\";
 
-# MySQL specific settings
-\$wgDBprefix         = \"{$slconf['DBprefix']}\";
-
-# MySQL table options to use during installation or update
-\$wgDBTableOptions   = \"{$slconf['DBTableOptions']}\";
-
-# Experimental charset support for MySQL 4.1/5.0.
-\$wgDBmysql5 = {$conf->DBmysql5};
-
-# Postgres specific settings
-\$wgDBport           = \"{$slconf['DBport']}\";
-\$wgDBmwschema       = \"{$slconf['DBmwschema']}\";
-\$wgDBts2schema      = \"{$slconf['DBts2schema']}\";
+{$dbsettings}
 
 ## Shared memory settings
 \$wgMainCacheType = $cacheType;
@@ -1632,6 +1739,11 @@ if ( \$wgCommandLineMode ) {
 {$magic}\$wgUseImageMagick = true;
 {$magic}\$wgImageMagickConvertCommand = \"{$convert}\";
 
+## If you use ImageMagick (or any other shell command) on a
+## Linux server, this will need to be set to the name of an
+## available UTF-8 locale
+{$locale}\$wgShellLocale = \"{$slconf['ShellLocale']}\";
+
 ## If you want to use image uploads under safe mode,
 ## create the directories images/archive, images/thumb and
 ## images/temp, and make them all writable. Then uncomment
@@ -1642,11 +1754,11 @@ if ( \$wgCommandLineMode ) {
 ## you can enable inline LaTeX equations:
 \$wgUseTeX           = false;
 
-\$wgLocalInterwiki   = \$wgSitename;
+\$wgLocalInterwiki   = strtolower( \$wgSitename );
 
 \$wgLanguageCode = \"{$slconf['LanguageCode']}\";
 
-\$wgProxyKey = \"$secretKey\";
+\$wgSecretKey = \"$secretKey\";
 
 ## Default skin: you can change the default skin. Use the internal symbolic
 ## names, ie 'standard', 'nostalgia', 'cologneblue', 'monobook':
@@ -1666,9 +1778,8 @@ if ( \$wgCommandLineMode ) {
 
 # When you make changes to this configuration file, this will make
 # sure that cached pages are cleared.
-\$configdate = gmdate( 'YmdHis', @filemtime( __FILE__ ) );
-\$wgCacheEpoch = max( \$wgCacheEpoch, \$configdate );
-	"; ## End of setting the $localsettings string
+\$wgCacheEpoch = max( \$wgCacheEpoch, gmdate( 'YmdHis', @filemtime( __FILE__ ) ) );
+"; ## End of setting the $localsettings string
 
 	// Keep things in Unix line endings internally;
 	// the system will write out as local text type.
@@ -1676,7 +1787,14 @@ if ( \$wgCommandLineMode ) {
 }
 
 function dieout( $text ) {
-	die( $text . "\n\n</body>\n</html>" );
+	global $mainListOpened;
+	if( $mainListOpened ) echo( "</ul>" );
+	if( $text != '' && substr( $text, 0, 2 ) != '<p'  && substr( $text, 0, 2 ) != '<h' ){
+		echo "<p>$text</p>\n";
+	} else {
+		echo $text;
+	}
+	die( "\n\n</div>\n</div>\n</div>\n</div>\n</body>\n</html>" );
 }
 
 function importVar( &$var, $name, $default = "" ) {
@@ -1703,10 +1821,8 @@ function importRequest( $name, $default = "" ) {
 	return importVar( $_REQUEST, $name, $default );
 }
 
-$radioCount = 0;
-
 function aField( &$conf, $field, $text, $type = "text", $value = "", $onclick = '' ) {
-	global $radioCount;
+	static $radioCount = 0;
 	if( $type != "" ) {
 		$xtype = "type=\"$type\"";
 	} else {
@@ -1719,10 +1835,8 @@ function aField( &$conf, $field, $text, $type = "text", $value = "", $onclick = 
 	if ($type == 'radio')
 		$id .= $radioCount++;
 
-	if( $nolabel ) {
-		echo "\t\t<label>";
-	} else {
-		echo "\t\t<label class='column' for=\"$id\">$text</label>\n";
+	if( !$nolabel ) {
+		echo "<label class='column' for=\"$id\">$text</label>";
 	}
 
 	if( $type == "radio" && $value == $conf->$field ) {
@@ -1730,7 +1844,7 @@ function aField( &$conf, $field, $text, $type = "text", $value = "", $onclick = 
 	} else {
 		$checked = "";
 	}
-	echo "\t\t<input $xtype name=\"$field\" id=\"$id\" class=\"iput-$type\" $checked ";
+	echo "<input $xtype name=\"$field\" id=\"$id\" class=\"iput-$type\" $checked ";
 	if ($onclick) {
 		echo " onclick='toggleDBarea(\"$value\",1)' " ;
 	}
@@ -1742,13 +1856,15 @@ function aField( &$conf, $field, $text, $type = "text", $value = "", $onclick = 
 	}
 
 
-	echo "\" />\n";
+	echo "\" />";
 	if( $nolabel ) {
-		echo " $text</label>\n";
+		echo "<label for=\"$id\">$text</label>";
 	}
 
 	global $errs;
-	if(isset($errs[$field])) echo "<span class='error'>" . $errs[$field] . "</span>\n";
+	if(isset($errs[$field])) {
+		echo "<span class='error'>" . htmlspecialchars( $errs[$field] ) . "</span>\n";
+	}
 }
 
 function getLanguageList() {
@@ -1790,7 +1906,7 @@ function locate_executable($loc, $names, $versioninfo = false) {
 
 	foreach ($names as $name) {
 		$command = "$loc".DIRECTORY_SEPARATOR."$name";
-		if (file_exists($command)) {
+		if (@file_exists($command)) {
 			if (!$versioninfo)
 				return $command;
 
@@ -1812,7 +1928,6 @@ function testMemcachedServer( $server ) {
 	}
 	if ( !$errstr && count( $hostport ) != 2 ) {
 		$errstr = 'Please specify host and port';
-		var_dump( $hostport );
 	}
 	if ( !$errstr ) {
 		list( $host, $port ) = $hostport;
@@ -1842,7 +1957,7 @@ function testMemcachedServer( $server ) {
 		fclose( $fp );
 	}
 	if ( !$errstr ) {
-		echo "<li>Connected to memcached on $host:$port successfully";
+		echo "<li>Connected to memcached on " . htmlspecialchars( "$host:$port" ) ." successfully</li>";
 	}
 	return $errstr;
 }
@@ -1852,12 +1967,12 @@ function database_picker($conf) {
 	print "\n";
 	foreach(array_keys($ourdb) as $db) {
 		if ($ourdb[$db]['havedriver']) {
-			print "<li>";
+			print "\t<li>";
 			aField( $conf, "DBtype", $ourdb[$db]['fullname'], 'radio', $db, 'onclick');
 			print "</li>\n";
 		}
 	}
-	print "\n";
+	print "\n\t";
 }
 
 function database_switcher($db) {
@@ -1871,10 +1986,75 @@ function printListItem( $item ) {
 	print "<li>$item</li>";
 }
 
+# Determine a suitable value for $wgShellLocale
+function getShellLocale( $wikiLang ) {
+	# Give up now if we're in safe mode or open_basedir
+	# It's theoretically possible but tricky to work with
+	if ( wfIniGetBool( "safe_mode" ) || ini_get( 'open_basedir' ) ) {
+		return false;
+	}
+
+	$os = php_uname( 's' );
+	$supported = array( 'Linux', 'SunOS', 'HP-UX' ); # Tested these
+	if ( !in_array( $os, $supported ) ) {
+		return false;
+	}
+
+	# Get a list of available locales
+	$lines = $ret = false;
+	exec( '/usr/bin/locale -a', $lines, $ret );
+	if ( $ret ) {
+		return false;
+	}
+
+	$lines = array_map( 'trim', $lines );
+	$candidatesByLocale = array();
+	$candidatesByLang = array();
+	foreach ( $lines as $line ) {
+		if ( $line === '' ) {
+			continue;
+		}
+		if ( !preg_match( '/^([a-zA-Z]+)(_[a-zA-Z]+|)\.(utf8|UTF-8)(@[a-zA-Z_]*|)$/i', $line, $m ) ) {
+			continue;
+		}
+		list( $all, $lang, $territory, $charset, $modifier ) = $m;
+		$candidatesByLocale[$m[0]] = $m;
+		$candidatesByLang[$lang][] = $m;
+	}
+
+	# Try the current value of LANG
+	if ( isset( $candidatesByLocale[ getenv( 'LANG' ) ] ) ) {
+		return getenv( 'LANG' );
+	}
+
+	# Try the most common ones
+	$commonLocales = array( 'en_US.UTF-8', 'en_US.utf8', 'de_DE.UTF-8', 'de_DE.utf8' );
+	foreach ( $commonLocales as $commonLocale ) {
+		if ( isset( $candidatesByLocale[$commonLocale] ) ) {
+			return $commonLocale;
+		}
+	}
+
+	# Is there an available locale in the Wiki's language?
+	if ( isset( $candidatesByLang[$wikiLang] ) ) {
+		$m = reset( $candidatesByLang[$wikiLang] );
+		return $m[0];
+	}
+
+	# Are there any at all?
+	if ( count( $candidatesByLocale ) ) {
+		$m = reset( $candidatesByLocale );
+		return $m[0];
+	}
+
+	# Give up
+	return false;
+}
+
 ?>
 
 	<div class="license">
-	<hr>
+	<hr/>
 	<p>This program is free software; you can redistribute it and/or modify
 	 it under the terms of the GNU General Public License as published by
 	 the Free Software Foundation; either version 2 of the License, or
@@ -1907,10 +2087,13 @@ function printListItem( $item ) {
 			<li><a href="../README">Readme</a></li>
 			<li><a href="../RELEASE-NOTES">Release notes</a></li>
 			<li><a href="../docs/">Documentation</a></li>
-			<li><a href="http://meta.wikipedia.org/wiki/MediaWiki_User's_Guide">User's Guide</a></li>
-			<li><a href="http://meta.wikimedia.org/wiki/MediaWiki_FAQ">FAQ</a></li>
+			<li><a href="http://www.mediawiki.org/wiki/Help:Contents">User's Guide</a></li>
+			<li><a href="http://www.mediawiki.org/wiki/Manual:Contents">Administrator's Guide</a></li>
+			<li><a href="http://www.mediawiki.org/wiki/Manual:FAQ">FAQ</a></li>
 		</ul>
-		<p style="font-size:90%;margin-top:1em">MediaWiki is Copyright &copy; 2001-2007 by Magnus Manske, Brion Vibber, Lee Daniel Crocker, Tim Starling, Erik M&ouml;ller, Gabriel Wicke and others.</p>
+		<p style="font-size:90%;margin-top:1em">MediaWiki is Copyright © 2001-2008 by Magnus Manske, Brion Vibber,
+		 Lee Daniel Crocker, Tim Starling, Erik Möller, Gabriel Wicke, Ævar Arnfjörð Bjarmason, Niklas Laxström,
+		 Domas Mituzas, Rob Church, Yuri Astrakhan, Aryeh Gregor, Aaron Schulz and others.</p>
 	</div></div>
 </div>
 

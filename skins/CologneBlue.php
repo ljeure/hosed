@@ -1,9 +1,10 @@
 <?php
 /**
- * See skin.txt
+ * See docs/skin.txt
  *
  * @todo document
- * @addtogroup Skins
+ * @file
+ * @ingroup Skins
  */
 
 if( !defined( 'MEDIAWIKI' ) )
@@ -11,12 +12,9 @@ if( !defined( 'MEDIAWIKI' ) )
 
 /**
  * @todo document
- * @addtogroup Skins
+ * @ingroup Skins
  */
 class SkinCologneBlue extends Skin {
-
-	private $searchboxes = '';
-	// How many search boxes have we made?  Avoid duplicate id's.
 
 	function getStylesheet() {
 		return 'common/cologneblue.css';
@@ -98,9 +96,8 @@ class SkinCologneBlue extends Skin {
 		return $s;
 	}
 
-	function doGetUserStyles() {
-		global $wgOut;
-		$s = parent::doGetUserStyles();
+	function reallyGenerateUserStylesheet() {
+		$s = parent::reallyGenerateUserStylesheet();
 		$qb = $this->qbSetting();
 
 		if ( 2 == $qb ) { # Right
@@ -180,6 +177,9 @@ class SkinCologneBlue extends Skin {
 
 		# Use the first heading from the Monobook sidebar as the "browse" section
 		$bar = $this->buildSidebar();
+		unset( $bar['SEARCH'] );
+		unset( $bar['LANGUAGES'] );
+		unset( $bar['TOOLBOX'] );
 		$browseLinks = reset( $bar );
 
 		foreach ( $browseLinks as $link ) {
@@ -263,8 +263,7 @@ class SkinCologneBlue extends Skin {
 		$s .= $this->menuHead( "qbspecialpages" )
 		  . $this->specialLink( "newpages" )
 		  . $sep . $this->specialLink( "imagelist" )
-		  . $sep . $this->specialLink( "statistics" )
-		  . $sep . $this->bugReportsLink();
+		  . $sep . $this->specialLink( "statistics" );
 		if ( $wgUser->isLoggedIn() && $wgEnableUploads ) {
 			$s .= $sep . $this->specialLink( "upload" );
 		}

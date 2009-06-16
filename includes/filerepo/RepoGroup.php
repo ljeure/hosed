@@ -1,8 +1,14 @@
 <?php
+/**
+ * @defgroup FileRepo FileRepo
+ *
+ * @file
+ * @ingroup FileRepo
+ */
 
 /**
+ * @ingroup FileRepo
  * Prioritized list of file repositories
- * @addtogroup filerepo
  */
 class RepoGroup {
 	var $localRepo, $foreignRepos, $reposInitialised = false;
@@ -32,9 +38,16 @@ class RepoGroup {
 	}
 
 	/**
-	 * Construct a group of file repositories. 
-	 * @param array $data Array of repository info arrays. 
-	 *     Each info array is an associative array with the 'class' member 
+	 * Set the singleton instance to a given object
+	 */
+	static function setSingleton( $instance ) {
+		self::$instance = $instance;
+	}
+
+	/**
+	 * Construct a group of file repositories.
+	 * @param array $data Array of repository info arrays.
+	 *     Each info array is an associative array with the 'class' member
 	 *     giving the class name. The entire array is passed to the repository
 	 *     constructor as the first parameter.
 	 */
@@ -47,26 +60,84 @@ class RepoGroup {
 	 * Search repositories for an image.
 	 * You can also use wfGetFile() to do this.
 	 * @param mixed $title Title object or string
-	 * @param mixed $time The 14-char timestamp before which the file should 
-	 *                    have been uploaded, or false for the current version
+	 * @param mixed $time The 14-char timestamp the file should have
+	 *                    been uploaded, or false for the current version
+	 * @param mixed $flags FileRepo::FIND_ flags
 	 * @return File object or false if it is not found
 	 */
-	function findFile( $title, $time = false ) {
+	function findFile( $title, $time = false, $flags = 0 ) {
 		if ( !$this->reposInitialised ) {
 			$this->initialiseRepos();
 		}
 
-		$image = $this->localRepo->findFile( $title, $time );
+		$image = $this->localRepo->findFile( $title, $time, $flags );
 		if ( $image ) {
 			return $image;
 		}
 		foreach ( $this->foreignRepos as $repo ) {
-			$image = $repo->findFile( $title, $time );
+			$image = $repo->findFile( $title, $time, $flags );
 			if ( $image ) {
 				return $image;
 			}
 		}
 		return false;
+	}
+	function findFiles( $titles ) {
+		if ( !$this->reposInitialised ) {
+			$this->initialiseRepos();
+		}
+
+		$titleObjs = array();
+		foreach ( $titles as $title ) {
+			if ( !( $title instanceof Title ) )
+				$title = Title::makeTitleSafe( NS_FILE, $title );
+			if ( $title )
+				$titleObjs[$title->getDBkey()] = $title;
+		}
+
+		$images = $this->localRepo->findFiles( $titleObjs );
+
+		foreach ( $this->foreignRepos as $repo ) {
+			// Remove found files from $titleObjs
+			foreach ( $images as $name => $image )
+				if ( isset( $titleObjs[$name] ) )
+					unset( $titleObjs[$name] );
+			
+			$images = array_merge( $images, $repo->findFiles( $titleObjs ) );
+		}
+		return $images;
+	}
+
+	/**
+	 * Interface for FileRepo::checkRedirect()
+	 */
+	function checkRedirect( $title ) {
+		if ( !$this->reposInitialised ) {
+			$this->initialiseRepos();
+		}
+
+		$redir = $this->localRepo->checkRedirect( $title );
+		if( $redir ) {
+			return $redir;
+		}
+		foreach ( $this->foreignRepos as $repo ) {
+			$redir = $repo->checkRedirect( $title );
+			if ( $redir ) {
+				return $redir;
+			}
+		}
+		return false;
+	}
+	
+	function findBySha1( $hash ) {
+		if ( !$this->reposInitialised ) {
+			$this->initialiseRepos();
+		}
+		
+		$result = $this->localRepo->findBySha1( $hash );
+		foreach ( $this->foreignRepos as $repo )
+			$result = array_merge( $result, $repo->findBySha1( $hash ) );
+		return $result;		
 	}
 
 	/**
@@ -76,13 +147,26 @@ class RepoGroup {
 		if ( !$this->reposInitialised ) {
 			$this->initialiseRepos();
 		}
-		if ( $index == 'local' ) {
+		if ( $index === 'local' ) {
 			return $this->localRepo;
 		} elseif ( isset( $this->foreignRepos[$index] ) ) {
 			return $this->foreignRepos[$index];
 		} else {
 			return false;
 		}
+	}
+	/**
+	 * Get the repo instance by its name
+	 */
+	function getRepoByName( $name ) {
+		if ( !$this->reposInitialised ) {
+			$this->initialiseRepos();
+		}
+		foreach ( $this->foreignRepos as $key => $repo ) {
+			if ( $repo->name == $name)
+				return $repo;
+		}
+		return false;
 	}
 
 	/**
@@ -91,6 +175,31 @@ class RepoGroup {
 	 */
 	function getLocalRepo() {
 		return $this->getRepo( 'local' );
+	}
+
+	/**
+	 * Call a function for each foreign repo, with the repo object as the 
+	 * first parameter.
+	 *
+	 * @param $callback callback The function to call
+	 * @param $params array Optional additional parameters to pass to the function
+	 */
+	function forEachForeignRepo( $callback, $params = array() ) {
+		foreach( $this->foreignRepos as $repo ) {
+			$args = array_merge( array( $repo ), $params );
+			if( call_user_func_array( $callback, $args ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Does the installation have any foreign repos set up?
+	 * @return bool
+	 */
+	function hasForeignRepos() {
+		return (bool)$this->foreignRepos;
 	}
 
 	/**
@@ -146,5 +255,3 @@ class RepoGroup {
 		}
 	}
 }
-
-

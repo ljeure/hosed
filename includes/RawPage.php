@@ -7,6 +7,7 @@
  * License: GPL (http://www.gnu.org/copyleft/gpl.html)
  *
  * @author Gabriel Wicke <wicke@wikidev.net>
+ * @file
  */
 
 /**
@@ -15,41 +16,45 @@
  */
 class RawPage {
 	var $mArticle, $mTitle, $mRequest;
-	var $mOldId, $mGen, $mCharset;
+	var $mOldId, $mGen, $mCharset, $mSection;
 	var $mSmaxage, $mMaxage;
 	var $mContentType, $mExpandTemplates;
 
 	function __construct( &$article, $request = false ) {
-		global $wgRequest, $wgInputEncoding, $wgSquidMaxage, $wgJsMimeType;
+		global $wgRequest, $wgInputEncoding, $wgSquidMaxage, $wgJsMimeType, $wgGroupPermissions;
 
 		$allowedCTypes = array('text/x-wiki', $wgJsMimeType, 'text/css', 'application/x-zope-edit');
 		$this->mArticle =& $article;
 		$this->mTitle =& $article->mTitle;
 
-		if ( $request === false ) {
+		if( $request === false ) {
 			$this->mRequest =& $wgRequest;
 		} else {
 			$this->mRequest = $request;
 		}
 
 		$ctype = $this->mRequest->getVal( 'ctype' );
-		$smaxage = $this->mRequest->getIntOrNull( 'smaxage', $wgSquidMaxage );
+		$smaxage = $this->mRequest->getIntOrNull( 'smaxage' );
 		$maxage = $this->mRequest->getInt( 'maxage', $wgSquidMaxage );
+
 		$this->mExpandTemplates = $this->mRequest->getVal( 'templates' ) === 'expand';
 		$this->mUseMessageCache = $this->mRequest->getBool( 'usemsgcache' );
 
+		$this->mSection = $this->mRequest->getIntOrNull( 'section' );
+
 		$oldid = $this->mRequest->getInt( 'oldid' );
-		switch ( $wgRequest->getText( 'direction' ) ) {
+
+		switch( $wgRequest->getText( 'direction' ) ) {
 			case 'next':
 				# output next revision, or nothing if there isn't one
-				if ( $oldid ) {
+				if( $oldid ) {
 					$oldid = $this->mTitle->getNextRevisionId( $oldid );
 				}
 				$oldid = $oldid ? $oldid : -1;
 				break;
 			case 'prev':
 				# output previous revision, or nothing if there isn't one
-				if ( ! $oldid ) {
+				if( ! $oldid ) {
 					# get the current revision so we can get the penultimate one
 					$this->mArticle->getTouched();
 					$oldid = $this->mArticle->mLatest;
@@ -62,15 +67,15 @@ class RawPage {
 				break;
 		}
 		$this->mOldId = $oldid;
-		
+
 		# special case for 'generated' raw things: user css/js
 		$gen = $this->mRequest->getVal( 'gen' );
 
-		if($gen == 'css') {
+		if( $gen == 'css' ) {
 			$this->mGen = $gen;
 			if( is_null( $smaxage ) ) $smaxage = $wgSquidMaxage;
 			if($ctype == '') $ctype = 'text/css';
-		} elseif ($gen == 'js') {
+		} elseif( $gen == 'js' ) {
 			$this->mGen = $gen;
 			if( is_null( $smaxage ) ) $smaxage = $wgSquidMaxage;
 			if($ctype == '') $ctype = $wgJsMimeType;
@@ -78,14 +83,25 @@ class RawPage {
 			$this->mGen = false;
 		}
 		$this->mCharset = $wgInputEncoding;
-		$this->mSmaxage = intval( $smaxage );
+
+		# Force caching for CSS and JS raw content, default: 5 minutes
+		if( is_null($smaxage) and ($ctype=='text/css' or $ctype==$wgJsMimeType) ) {
+			global $wgForcedRawSMaxage;
+			$this->mSmaxage = intval($wgForcedRawSMaxage);
+		} else {
+			$this->mSmaxage = intval( $smaxage );
+		}
 		$this->mMaxage = $maxage;
-		
-		// Output may contain user-specific data; vary for open sessions
-		$this->mPrivateCache = ( $this->mSmaxage == 0 ) ||
-			( session_id() != '' );
-		
-		if ( $ctype == '' or ! in_array( $ctype, $allowedCTypes ) ) {
+
+		# Output may contain user-specific data;
+		# vary generated content for open sessions and private wikis
+		if( $this->mGen or !$wgGroupPermissions['*']['read'] ) {
+			$this->mPrivateCache = $this->mSmaxage == 0 || session_id() != '';
+		} else {
+			$this->mPrivateCache = false;
+		}
+
+		if( $ctype == '' or ! in_array( $ctype, $allowedCTypes ) ) {
 			$this->mContentType = 'text/x-wiki';
 		} else {
 			$this->mContentType = $ctype;
@@ -110,9 +126,8 @@ class RawPage {
 		} else {
 			$url = $_SERVER['PHP_SELF'];
 		}
-		
-		$ua = @$_SERVER['HTTP_USER_AGENT'];
-		if( strcmp( $wgScript, $url ) && strpos( $ua, 'MSIE' ) !== false ) {
+
+		if( strcmp( $wgScript, $url ) ) {
 			# Internet Explorer will ignore the Content-Type header if it
 			# thinks it sees a file extension it recognizes. Make sure that
 			# all raw requests are done through the script node, which will
@@ -134,6 +149,18 @@ class RawPage {
 		# allow the client to cache this for 24 hours
 		$mode = $this->mPrivateCache ? 'private' : 'public';
 		header( 'Cache-Control: '.$mode.', s-maxage='.$this->mSmaxage.', max-age='.$this->mMaxage );
+		
+		if( HTMLFileCache::useFileCache() ) {
+			$cache = new HTMLFileCache( $this->mTitle, 'raw' );
+			if( $cache->isFileCacheGood( /* Assume up to date */ ) ) {
+				$cache->loadFromFileCache();
+				$wgOut->disable();
+				return;
+			} else {
+				ob_start( array(&$cache, 'saveToFileCache' ) );
+			}
+		}
+		
 		$text = $this->getRawText();
 
 		if( !wfRunHooks( 'RawPageViewBeforeOutput', array( &$this, &$text ) ) ) {
@@ -146,13 +173,15 @@ class RawPage {
 
 	function getRawText() {
 		global $wgUser, $wgOut, $wgRequest;
-		if($this->mGen) {
+		if( $this->mGen ) {
 			$sk = $wgUser->getSkin();
-			$sk->initPage($wgOut);
-			if($this->mGen == 'css') {
-				return $sk->getUserStylesheet();
-			} else if($this->mGen == 'js') {
-				return $sk->getUserJs();
+			if( !StubObject::isRealObject( $wgOut ) )
+				$wgOut->_unstub( 2 );
+			$sk->initPage( $wgOut );
+			if( $this->mGen == 'css' ) {
+				return $sk->generateUserStylesheet();
+			} else if( $this->mGen == 'js' ) {
+				return $sk->generateUserJs();
 			}
 		} else {
 			return $this->getArticleText();
@@ -164,7 +193,7 @@ class RawPage {
 		$text = '';
 		if( $this->mTitle ) {
 			// If it's a MediaWiki message we can just hit the message cache
-			if ( $this->mUseMessageCache && $this->mTitle->getNamespace() == NS_MEDIAWIKI ) {
+			if( $this->mUseMessageCache && $this->mTitle->getNamespace() == NS_MEDIAWIKI ) {
 				$key = $this->mTitle->getDBkey();
 				$text = wfMsgForContentNoTrans( $key );
 				# If the message doesn't exist, return a blank
@@ -174,10 +203,15 @@ class RawPage {
 			} else {
 				// Get it from the DB
 				$rev = Revision::newFromTitle( $this->mTitle, $this->mOldId );
-				if ( $rev ) {
+				if( $rev ) {
 					$lastmod = wfTimestamp( TS_RFC2822, $rev->getTimestamp() );
 					header( "Last-modified: $lastmod" );
-					$text = $rev->getText();
+
+					if( !is_null($this->mSection ) ) {
+						global $wgParser;
+						$text = $wgParser->getSection ( $rev->getText(), $this->mSection );
+					} else
+						$text = $rev->getText();
 					$found = true;
 				}
 			}
@@ -191,7 +225,7 @@ class RawPage {
 			# have the pages.
 			header( "HTTP/1.0 404 Not Found" );
 		}
-		
+
 		// Special-case for empty CSS/JS
 		//
 		// Internet Explorer for Mac handles empty files badly;
@@ -205,19 +239,18 @@ class RawPage {
 				$this->mContentType == 'text/javascript' ) ) {
 			return "/* Empty */";
 		}
-		
+
 		return $this->parseArticleText( $text );
 	}
 
 	function parseArticleText( $text ) {
-		if ( $text === '' )
+		if( $text === '' )
 			return '';
 		else
-			if ( $this->mExpandTemplates ) {
+			if( $this->mExpandTemplates ) {
 				global $wgParser;
 				return $wgParser->preprocess( $text, $this->mTitle, new ParserOptions() );
 			} else
 				return $text;
 	}
 }
-

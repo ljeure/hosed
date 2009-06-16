@@ -1,7 +1,13 @@
 #!/usr/bin/perl
 
 ## Convert data from a MySQL mediawiki database into a Postgres mediawiki database
-## svn: $Id: mediawiki_mysql2postgres.pl 21254 2007-04-14 02:10:03Z greg $
+## svn: $Id: mediawiki_mysql2postgres.pl 43845 2008-11-22 06:44:45Z greg $
+
+## NOTE: It is probably easier to dump your wiki using maintenance/dumpBackup.php
+## and then import it with maintenance/importDump.php
+
+## If having UTF-8 problems, there are reports that adding --compatible=postgresql
+## may help.
 
 use strict;
 use warnings;
@@ -175,7 +181,7 @@ $MYSQLSOCKET and $conninfo .= "\n--   socket    $MYSQLSOCKET";
 print qq{
 -- Dump of MySQL Mediawiki tables for import into a Postgres Mediawiki schema
 -- Performed by the program: $0
--- Version: $VERSION (subversion }.q{$LastChangedRevision: 21254 $}.qq{)
+-- Version: $VERSION (subversion }.q{$LastChangedRevision: 43845 $}.qq{)
 -- Author: Greg Sabino Mullane <greg\@turnstep.com> Comments welcome
 --
 -- This file was created: $now
@@ -196,6 +202,7 @@ print q{
 BEGIN;
 SET client_min_messages = 'WARNING';
 SET timezone = 'GMT';
+SET DateStyle = 'ISO, YMD';
 };
 
 warn qq{Reading in the Postgres schema information\n} if $verbose;

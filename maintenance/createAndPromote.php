@@ -3,7 +3,8 @@
 /**
  * Maintenance script to create an account and grant it administrator rights
  *
- * @addtogroup Maintenance
+ * @file
+ * @ingroup Maintenance
  * @author Rob Church <robchur@gmail.com>
  */
 
@@ -38,7 +39,7 @@ if( !is_object( $user ) ) {
 # Insert the account into the database
 $user->addToDatabase();
 $user->setPassword( $password );
-$user->setToken();
+$user->saveSettings();
 
 # Promote user
 $user->addGroup( 'sysop' );

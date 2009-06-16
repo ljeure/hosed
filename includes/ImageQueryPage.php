@@ -4,8 +4,7 @@
  * Variant of QueryPage which uses a gallery to output results, thus
  * suited for reports generating images
  *
- * @package MediaWiki
- * @addtogroup SpecialPage
+ * @ingroup SpecialPage
  * @author Rob Church <robchur@gmail.com>
  */
 class ImageQueryPage extends QueryPage {
@@ -35,7 +34,7 @@ class ImageQueryPage extends QueryPage {
 				}
 			}
 
-			$out->addHtml( $gallery->toHtml() );
+			$out->addHTML( $gallery->toHtml() );
 		}
 	}
 
@@ -46,9 +45,9 @@ class ImageQueryPage extends QueryPage {
 	 * @return Image
 	 */
 	private function prepareImage( $row ) {
-		$namespace = isset( $row->namespace ) ? $row->namespace : NS_IMAGE;
+		$namespace = isset( $row->namespace ) ? $row->namespace : NS_FILE;
 		$title = Title::makeTitleSafe( $namespace, $row->title );
-		return ( $title instanceof Title && $title->getNamespace() == NS_IMAGE )
+		return ( $title instanceof Title && $title->getNamespace() == NS_FILE )
 			? wfFindFile( $title )
 			: null;
 	}
@@ -64,5 +63,3 @@ class ImageQueryPage extends QueryPage {
 	}
 
 }
-
-

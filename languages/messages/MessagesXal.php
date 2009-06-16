@@ -1,8 +1,12 @@
 <?php
-/**
-  * @addtogroup Language
-  */
-# Kalmyk stub localization;
+/** Kalmyk (Хальмг)
+ *
+ * @ingroup Language
+ * @file
+ *
+ * @author ОйЛ
+ * @author לערי ריינהארט
+ */
 
 $namespaceNames = array(
 	NS_MEDIA            => 'Аһар',
@@ -13,8 +17,8 @@ $namespaceNames = array(
 	NS_USER_TALK        => 'Орлцачна_тускар_ухалвр',
 	# NS_PROJECT set by $wgMetaNamespace
 	NS_PROJECT_TALK     => '$1_тускар_ухалвр',
-	NS_IMAGE            => 'Зург',
-	NS_IMAGE_TALK       => 'Зургин_тускар_ухалвр',
+	NS_FILE             => 'Зург',
+	NS_FILE_TALK        => 'Зургин_тускар_ухалвр',
 	NS_MEDIAWIKI        => 'MediaWiki',
 	NS_MEDIAWIKI_TALK   => 'MediaWiki_тускар_ухалвр',
 	NS_TEMPLATE         => 'Зура',
@@ -27,28 +31,39 @@ $namespaceNames = array(
 
 $fallback8bitEncoding = "windows-1251";
 
-
 $messages = array(
-
-'edit' => 'Чиклх',
 'article' => 'Халх',
-'history' => 'Чикллһнə бүрткл',
-'nstab-main' => 'Халх',
-'nstab-user' => 'Орлцач',
+'mytalk'  => 'Мини күүндлһн бəəрм',
+
+'history'          => 'Чикллһнə бүрткл',
+'history_short'    => 'Чикллһнə бүрткл',
+'edit'             => 'Чиклх',
+'talkpage'         => 'Ухалвр',
+'talkpagelinktext' => 'Ухалвр',
+'talk'             => 'Ухалвр',
+
+# All link text and link target definitions of links into project namespace that get used by other message strings, with the exception of user group pages (see grouppage) and the disambiguation template definition (see disambiguations).
+'mainpage'             => 'Эклц',
+'mainpage-description' => 'Эклц',
+
+# Short words for each namespace, by default used in the namespace tab in monobook
+'nstab-main'     => 'Халх',
+'nstab-user'     => 'Орлцач',
 'nstab-template' => 'Зура',
-'nstab-help' => 'Цəəлһлһн',
+'nstab-help'     => 'Цəəлһлһн',
 'nstab-category' => 'Янз',
-'talkpage' => 'Ухалвр',
-'history_short' => 'Чикллһнə бүрткл',
 
-
+# Login and logout pages
+'login'         => 'Оруллһн',
 'createaccount' => 'Выль вики-авторлэн регистрациез',
-'login' => 'Оруллһн',
-'mycontris' => 'Мини өгүллһдүд',
-'mytalk' => 'Мини күүндлһн бəəрм',
+
+# Preferences page
 'preferences' => 'Дурллһн',
 
+# File description page
+'filehist-user' => 'Орлцач',
+
+# Contributions
+'mycontris' => 'Мини өгүллһдүд',
+
 );
-
-
-

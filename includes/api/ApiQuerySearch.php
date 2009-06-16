@@ -30,8 +30,8 @@ if (!defined('MEDIAWIKI')) {
 
 /**
  * Query module to perform full text search within wiki titles and content
- * 
- * @addtogroup API
+ *
+ * @ingroup API
  */
 class ApiQuerySearch extends ApiQueryGeneratorBase {
 
@@ -52,19 +52,40 @@ class ApiQuerySearch extends ApiQueryGeneratorBase {
 		$params = $this->extractRequestParams();
 
 		$limit = $params['limit'];
-		$query = $params['search'];		
-		if (is_null($query) || empty($query))
+		$query = $params['search'];
+		$what = $params['what'];
+		if (strval($query) === '')
 			$this->dieUsage("empty search string is not allowed", 'param-search');
 
 		$search = SearchEngine::create();
 		$search->setLimitOffset( $limit+1, $params['offset'] );
 		$search->setNamespaces( $params['namespace'] );
 		$search->showRedirects = $params['redirects'];
-		
-		if ($params['what'] == 'text')
+
+		if ($what == 'text') {
 			$matches = $search->searchText( $query );
-		else
+		} elseif( $what == 'title' ) {
 			$matches = $search->searchTitle( $query );
+		} else {
+			// We default to title searches; this is a terrible legacy
+			// of the way we initially set up the MySQL fulltext-based
+			// search engine with separate title and text fields.
+			// In the future, the default should be for a combined index.
+			$what = 'title';
+			$matches = $search->searchTitle( $query );
+			
+			// Not all search engines support a separate title search,
+			// for instance the Lucene-based engine we use on Wikipedia.
+			// In this case, fall back to full-text search (which will
+			// include titles in it!)
+			if( is_null( $matches ) ) {
+				$what = 'text';
+				$matches = $search->searchText( $query );
+			}
+		}
+		if (is_null($matches))
+			$this->dieUsage("{$what} search is disabled",
+					"search-{$what}-disabled");
 
 		$data = array ();
 		$count = 0;
@@ -75,6 +96,10 @@ class ApiQuerySearch extends ApiQueryGeneratorBase {
 				break;
 			}
 
+			// Silently skip broken and missing titles
+			if ($result->isBrokenTitle() || $result->isMissingRevision())
+				continue;
+			
 			$title = $result->getTitle();
 			if (is_null($resultPageSet)) {
 				$data[] = array(
@@ -94,16 +119,16 @@ class ApiQuerySearch extends ApiQueryGeneratorBase {
 		}
 	}
 
-	protected function getAllowedParams() {
+	public function getAllowedParams() {
 		return array (
 			'search' => null,
 			'namespace' => array (
 				ApiBase :: PARAM_DFLT => 0,
 				ApiBase :: PARAM_TYPE => 'namespace',
-				ApiBase :: PARAM_ISMULTI => true, 
+				ApiBase :: PARAM_ISMULTI => true,
 			),
 			'what' => array (
-				ApiBase :: PARAM_DFLT => 'title',
+				ApiBase :: PARAM_DFLT => null,
 				ApiBase :: PARAM_TYPE => array (
 					'title',
 					'text',
@@ -121,7 +146,7 @@ class ApiQuerySearch extends ApiQueryGeneratorBase {
 		);
 	}
 
-	protected function getParamDescription() {
+	public function getParamDescription() {
 		return array (
 			'search' => 'Search for all page titles (or content) that has this value.',
 			'namespace' => 'The namespace(s) to enumerate.',
@@ -132,7 +157,7 @@ class ApiQuerySearch extends ApiQueryGeneratorBase {
 		);
 	}
 
-	protected function getDescription() {
+	public function getDescription() {
 		return 'Perform a full text search';
 	}
 
@@ -145,7 +170,6 @@ class ApiQuerySearch extends ApiQueryGeneratorBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiQuerySearch.php 24453 2007-07-30 08:09:15Z yurik $';
+		return __CLASS__ . ': $Id: ApiQuerySearch.php 44186 2008-12-03 19:33:57Z catrope $';
 	}
 }
-

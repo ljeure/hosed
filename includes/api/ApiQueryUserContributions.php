@@ -30,8 +30,8 @@ if (!defined('MEDIAWIKI')) {
 
 /**
  * This query action adds a list of a specified user's contributions to the output.
- * 
- * @addtogroup API
+ *
+ * @ingroup API
  */
 class ApiQueryContributions extends ApiQueryBase {
 
@@ -48,7 +48,7 @@ class ApiQueryContributions extends ApiQueryBase {
 		// Parse some parameters
 		$this->params = $this->extractRequestParams();
 
-		$prop = array_flip($this->params['prop']);		
+		$prop = array_flip($this->params['prop']);
 		$this->fld_ids = isset($prop['ids']);
 		$this->fld_title = isset($prop['title']);
 		$this->fld_comment = isset($prop['comment']);
@@ -59,8 +59,22 @@ class ApiQueryContributions extends ApiQueryBase {
 		$this->selectNamedDB('contributions', DB_SLAVE, 'contributions');
 		$db = $this->getDB();
 
-		// Prepare query
-		$this->prepareUsername();
+		if(isset($this->params['userprefix']))
+		{
+			$this->prefixMode = true;
+			$this->multiUserMode = true;
+			$this->userprefix = $this->params['userprefix'];
+		}
+		else
+		{
+			$this->usernames = array();
+			if(!is_array($this->params['user']))
+				$this->params['user'] = array($this->params['user']);
+			foreach($this->params['user'] as $u)
+				$this->prepareUsername($u);
+			$this->prefixMode = false;
+			$this->multiUserMode = (count($this->params['user']) > 1);
+		}
 		$this->prepareQuery();
 
 		//Do the actual query.
@@ -75,7 +89,10 @@ class ApiQueryContributions extends ApiQueryBase {
 		while ( $row = $db->fetchObject( $res ) ) {
 			if (++ $count > $limit) {
 				// We've reached the one extra which shows that there are additional pages to be had. Stop here...
-				$this->setContinueEnumParameter('start', wfTimestamp(TS_ISO_8601, $row->rev_timestamp));
+				if($this->multiUserMode)
+					$this->setContinueEnumParameter('continue', $this->continueStr($row));
+				else
+					$this->setContinueEnumParameter('start', wfTimestamp(TS_ISO_8601, $row->rev_timestamp));
 				break;
 			}
 
@@ -96,8 +113,7 @@ class ApiQueryContributions extends ApiQueryBase {
 	 * Validate the 'user' parameter and set the value to compare
 	 * against `revision`.`rev_user_text`
 	 */
-	private function prepareUsername() {
-		$user = $this->params['user'];
+	private function prepareUsername($user) {
 		if( $user ) {
 			$name = User::isIP( $user )
 				? $user
@@ -105,13 +121,13 @@ class ApiQueryContributions extends ApiQueryBase {
 			if( $name === false ) {
 				$this->dieUsage( "User name {$user} is not valid", 'param_user' );
 			} else {
-				$this->username = $name;
+				$this->usernames[] = $name;
 			}
 		} else {
 			$this->dieUsage( 'User parameter may not be empty', 'param_user' );
 		}
 	}
-	
+
 	/**
 	 * Prepares the query and returns the limit of rows requested
 	 */
@@ -119,18 +135,36 @@ class ApiQueryContributions extends ApiQueryBase {
 
 		//We're after the revision table, and the corresponding page row for
 		//anything we retrieve.
-		list ($tbl_page, $tbl_revision) = $this->getDB()->tableNamesN('page', 'revision');
-		$this->addTables("$tbl_revision LEFT OUTER JOIN $tbl_page ON page_id=rev_page");
+		$this->addTables(array('revision', 'page'));
+		$this->addWhere('page_id=rev_page');
 		
+		// Handle continue parameter
+		if($this->multiUserMode && !is_null($this->params['continue']))
+		{
+			$continue = explode('|', $this->params['continue']);
+			if(count($continue) != 2)
+				$this->dieUsage("Invalid continue param. You should pass the original " .
+					"value returned by the previous query", "_badcontinue");
+			$encUser = $this->getDB()->strencode($continue[0]);
+			$encTS = wfTimestamp(TS_MW, $continue[1]);
+			$op = ($this->params['dir'] == 'older' ? '<' : '>');
+			$this->addWhere("rev_user_text $op '$encUser' OR " .
+					"(rev_user_text = '$encUser' AND " .
+					"rev_timestamp $op= '$encTS')");
+		}
+
 		$this->addWhereFld('rev_deleted', 0);
-		
-		// We only want pages by the specified user.
-		$this->addWhereFld( 'rev_user_text', $this->username );
-
+		// We only want pages by the specified users.
+		if($this->prefixMode)
+			$this->addWhere("rev_user_text LIKE '" . $this->getDB()->escapeLike($this->userprefix) . "%'");
+		else
+			$this->addWhereFld('rev_user_text', $this->usernames);
 		// ... and in the specified timeframe.
-		$this->addWhereRange('rev_timestamp', 
+		// Ensure the same sort order for rev_user_text and rev_timestamp
+		// so our query is indexed
+		$this->addWhereRange('rev_user_text', $this->params['dir'], null, null);
+		$this->addWhereRange('rev_timestamp',
 			$this->params['dir'], $this->params['start'], $this->params['end'] );
-
 		$this->addWhereFld('page_namespace', $this->params['namespace']);
 
 		$show = $this->params['show'];
@@ -142,27 +176,28 @@ class ApiQueryContributions extends ApiQueryBase {
 			$this->addWhereIf('rev_minor_edit = 0', isset ($show['!minor']));
 			$this->addWhereIf('rev_minor_edit != 0', isset ($show['minor']));
 		}
-
 		$this->addOption('LIMIT', $this->params['limit'] + 1);
+		$this->addOption( 'USE INDEX', array( 'revision' => 'usertext_timestamp' ) );
 
 		// Mandatory fields: timestamp allows request continuation
-		// ns+title checks if the user has access rights for this page  
+		// ns+title checks if the user has access rights for this page
+		// user_text is necessary if multiple users were specified
 		$this->addFields(array(
 			'rev_timestamp',
 			'page_namespace',
 			'page_title',
+			'rev_user_text',
 			));
-				
+
 		$this->addFieldsIf('rev_page', $this->fld_ids);
-		$this->addFieldsIf('rev_id', $this->fld_ids);
+		$this->addFieldsIf('rev_id', $this->fld_ids || $this->fld_flags);
+		$this->addFieldsIf('page_latest', $this->fld_flags);
 		// $this->addFieldsIf('rev_text_id', $this->fld_ids); // Should this field be exposed?
 		$this->addFieldsIf('rev_comment', $this->fld_comment);
 		$this->addFieldsIf('rev_minor_edit', $this->fld_flags);
-
-		// These fields depend only work if the page table is joined
 		$this->addFieldsIf('page_is_new', $this->fld_flags);
 	}
-	
+
 	/**
 	 * Extract fields from the database row and append them to a result array
 	 */
@@ -170,14 +205,15 @@ class ApiQueryContributions extends ApiQueryBase {
 
 		$vals = array();
 
+		$vals['user'] = $row->rev_user_text;
 		if ($this->fld_ids) {
 			$vals['pageid'] = intval($row->rev_page);
-			$vals['revid'] = intval($row->rev_id); 
+			$vals['revid'] = intval($row->rev_id);
 			// $vals['textid'] = intval($row->rev_text_id);	// todo: Should this field be exposed?
 		}
-		
+
 		if ($this->fld_title)
-			ApiQueryBase :: addTitleInfo($vals, 
+			ApiQueryBase :: addTitleInfo($vals,
 				Title :: makeTitle($row->page_namespace, $row->page_title));
 
 		if ($this->fld_timestamp)
@@ -188,15 +224,23 @@ class ApiQueryContributions extends ApiQueryBase {
 				$vals['new'] = '';
 			if ($row->rev_minor_edit)
 				$vals['minor'] = '';
+			if ($row->page_latest == $row->rev_id)
+				$vals['top'] = '';
 		}
 
-		if ($this->fld_comment && !empty ($row->rev_comment))
+		if ($this->fld_comment && isset( $row->rev_comment ) )
 			$vals['comment'] = $row->rev_comment;
 
 		return $vals;
 	}
+	
+	private function continueStr($row)
+	{
+		return $row->rev_user_text . '|' .
+			wfTimestamp(TS_ISO_8601, $row->rev_timestamp);
+	}
 
-	protected function getAllowedParams() {
+	public function getAllowedParams() {
 		return array (
 			'limit' => array (
 				ApiBase :: PARAM_DFLT => 10,
@@ -211,9 +255,11 @@ class ApiQueryContributions extends ApiQueryBase {
 			'end' => array (
 				ApiBase :: PARAM_TYPE => 'timestamp'
 			),
+			'continue' => null,
 			'user' => array (
-				ApiBase :: PARAM_TYPE => 'user'
+				ApiBase :: PARAM_ISMULTI => true
 			),
+			'userprefix' => null,
 			'dir' => array (
 				ApiBase :: PARAM_DFLT => 'older',
 				ApiBase :: PARAM_TYPE => array (
@@ -246,12 +292,14 @@ class ApiQueryContributions extends ApiQueryBase {
 		);
 	}
 
-	protected function getParamDescription() {
+	public function getParamDescription() {
 		return array (
 			'limit' => 'The maximum number of contributions to return.',
 			'start' => 'The start timestamp to return from.',
 			'end' => 'The end timestamp to return to.',
+			'continue' => 'When more results are available, use this to continue.',
 			'user' => 'The user to retrieve contributions for.',
+			'userprefix' => 'Retrieve contibutions for all users whose names begin with this value. Overrides ucuser.',
 			'dir' => 'The direction to search (older or newer).',
 			'namespace' => 'Only list contributions in these namespaces',
 			'prop' => 'Include additional pieces of information',
@@ -259,18 +307,18 @@ class ApiQueryContributions extends ApiQueryBase {
 		);
 	}
 
-	protected function getDescription() {
+	public function getDescription() {
 		return 'Get all edits by a user';
 	}
 
 	protected function getExamples() {
 		return array (
-			'api.php?action=query&list=usercontribs&ucuser=YurikBot'
+			'api.php?action=query&list=usercontribs&ucuser=YurikBot',
+			'api.php?action=query&list=usercontribs&ucuserprefix=217.121.114.',
 		);
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiQueryUserContributions.php 24754 2007-08-13 18:18:18Z robchurch $';
+		return __CLASS__ . ': $Id: ApiQueryUserContributions.php 43271 2008-11-06 22:38:42Z siebrand $';
 	}
 }
-

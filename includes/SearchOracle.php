@@ -18,8 +18,13 @@
 # http://www.gnu.org/copyleft/gpl.html
 
 /**
+ * @file
+ * @ingroup Search
+ */
+
+/**
  * Search engine hook base class for Oracle (ConText).
- * @addtogroup Search
+ * @ingroup Search
  */
 class SearchOracle extends SearchEngine {
 	function __construct($db) {
@@ -70,9 +75,12 @@ class SearchOracle extends SearchEngine {
 	 * @private
 	 */
 	function queryNamespaces() {
-		$namespaces = implode(',', $this->namespaces);
-		if ($namespaces == '') {
+		if( is_null($this->namespaces) )
+			return '';
+		if ( !count( $this->namespaces ) ) {
 			$namespaces = '0';
+		} else {
+			$namespaces = $this->db->makeList( $this->namespaces );
 		}
 		return 'AND page_namespace IN (' . $namespaces . ')';
 	}
@@ -137,7 +145,10 @@ class SearchOracle extends SearchEngine {
 			'WHERE page_id=si_page AND ' . $match;
 	}
 
-	/** @todo document */
+	/** 
+	 * Parse a user input search string, and return an SQL fragment to be used 
+	 * as part of a WHERE clause
+	 */
 	function parseQuery($filteredText, $fulltext) {
 		global $wgContLang;
 		$lc = SearchEngine::legalSearchChars();
@@ -163,9 +174,9 @@ class SearchOracle extends SearchEngine {
 			}
 		}
 
-		$searchon = $this->db->strencode(join(',', $q));
+		$searchon = $this->db->addQuotes(join(',', $q));
 		$field = $this->getIndexField($fulltext);
-		return " CONTAINS($field, '$searchon', 1) > 0 ";
+		return " CONTAINS($field, $searchon, 1) > 0 ";
 	}
 
 	/**
@@ -208,7 +219,7 @@ class SearchOracle extends SearchEngine {
 }
 
 /**
- * @addtogroup Search
+ * @ingroup Search
  */
 class OracleSearchResultSet extends SearchResultSet {
 	function __construct($resultSet, $terms) {
@@ -231,5 +242,3 @@ class OracleSearchResultSet extends SearchResultSet {
 		return new SearchResult($row);
 	}
 }
-
-

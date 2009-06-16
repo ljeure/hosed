@@ -3,7 +3,8 @@
 /**
  * Delete old (non-current) revisions from the database
  *
- * @addtogroup Maintenance
+ * @file
+ * @ingroup Maintenance
  * @author Rob Church <robchur@gmail.com>
  */
 
@@ -16,12 +17,12 @@ echo( "Delete Old Revisions\n\n" );
 if( @$options['help'] ) {
 	ShowUsage();
 } else {
-	DeleteOldRevisions( @$options['delete'] );
+	DeleteOldRevisions( @$options['delete'], $args );
 }
 
 function ShowUsage() {
 	echo( "Deletes non-current revisions from the database.\n\n" );
-	echo( "Usage: php deleteOldRevisions.php [--delete|--help]\n\n" );
+	echo( "Usage: php deleteOldRevisions.php [--delete|--help] [<page_id> ...]\n\n" );
 	echo( "delete : Performs the deletion\n" );
 	echo( "  help : Show this usage information\n" );
 }

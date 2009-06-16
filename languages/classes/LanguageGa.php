@@ -1,9 +1,9 @@
 <?php
+
 /** Irish (Gaeilge)
  *
- * @addtogroup Language
+ * @ingroup Language
  */
-
 class LanguageGa extends Language {
 	# Convert day names
 	# Invoked with {{GRAMMAR:transformation|word}}
@@ -14,17 +14,6 @@ class LanguageGa extends Language {
 		}
 
 		switch ( $case ) {
-		case 'genitive':
-			switch ($word) {
-			case 'Vicipéid':     $word = 'Vicipéide'; break;
-			case 'Vicífhoclóir': $word = 'Vicífhoclóra'; break;
-			case 'Vicíleabhair': $word = 'Vicíleabhar'; break;
-			case 'Vicíshliocht': $word = 'Vicíshleachta'; break;
-			case 'Vicífhoinse':  $word = 'Vicífhoinse'; break;
-			case 'Vicíghnéithe': $word = 'Vicíghnéithe'; break;
-			case 'Vicínuacht':   $word = 'Vicínuachta'; break;
-			}
-
 		case 'ainmlae':
 			switch ($word) {
 			case 'an Domhnach':
@@ -45,7 +34,4 @@ class LanguageGa extends Language {
 		}
 		return $word;
 	}
-
 }
-
-

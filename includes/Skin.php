@@ -1,8 +1,10 @@
 <?php
+/**
+ * @defgroup Skins Skins
+ */
+
 if ( ! defined( 'MEDIAWIKI' ) )
 	die( 1 );
-
-# See skin.txt
 
 /**
  * The main skin class that provide methods and properties for all other skins.
@@ -10,17 +12,15 @@ if ( ! defined( 'MEDIAWIKI' ) )
  *
  * See docs/skin.txt for more information.
  *
- * @addtogroup Skins
+ * @ingroup Skins
  */
 class Skin extends Linker {
 	/**#@+
 	 * @private
 	 */
-	var $lastdate, $lastline;
-	var $rc_cache ; # Cache for Enhanced Recent Changes
-	var $rcCacheIndex ; # Recent Changes Cache Counter for visibility toggle
-	var $rcMoveIndex;
 	var $mWatchLinkNum = 0; // Appended to end of watch link id's
+	// How many search boxes have we made?  Avoid duplicate id's.
+	protected $searchboxes = '';
 	/**#@-*/
 	protected $mRevisionId; // The revision ID we're looking at, null if not applicable.
 	protected $skinname = 'standard' ;
@@ -60,6 +60,21 @@ class Skin extends Linker {
 		}
 		return $wgValidSkinNames;
 	}
+	
+	/**
+	 * Fetch the list of usable skins in regards to $wgSkipSkins.
+	 * Useful for Special:Preferences and other places where you
+	 * only want to show skins users _can_ use.
+	 * @return array of strings
+	 */
+	public static function getUsableSkins() {
+		global $wgSkipSkins;
+		$usableSkins = self::getSkinNames();
+		foreach ( $wgSkipSkins as $skip ) {
+			unset( $usableSkins[$skip] );
+		}
+		return $usableSkins;
+	}
 
 	/**
 	 * Normalize a skin preference value to a form that can be loaded.
@@ -97,8 +112,7 @@ class Skin extends Linker {
 		if( isset( $skinNames[$key] ) ) {
 			return $key;
 		} else {
-			// The old built-in skin
-			return 'standard';
+			return 'monobook';
 		}
 	}
 
@@ -110,28 +124,30 @@ class Skin extends Linker {
 	 */
 	static function &newFromKey( $key ) {
 		global $wgStyleDirectory;
-		
+
 		$key = Skin::normalizeKey( $key );
 
 		$skinNames = Skin::getSkinNames();
 		$skinName = $skinNames[$key];
+		$className = 'Skin'.ucfirst($key);
 
 		# Grab the skin class and initialise it.
-		// Preload base classes to work around APC/PHP5 bug
-		$deps = "{$wgStyleDirectory}/{$skinName}.deps.php";
-		if( file_exists( $deps ) ) include_once( $deps );
-		require_once( "{$wgStyleDirectory}/{$skinName}.php" );
+		if ( !class_exists( $className ) ) {
+			// Preload base classes to work around APC/PHP5 bug
+			$deps = "{$wgStyleDirectory}/{$skinName}.deps.php";
+			if( file_exists( $deps ) ) include_once( $deps );
+			require_once( "{$wgStyleDirectory}/{$skinName}.php" );
 
-		# Check if we got if not failback to default skin
-		$className = 'Skin'.$skinName;
-		if( !class_exists( $className ) ) {
-			# DO NOT die if the class isn't found. This breaks maintenance
-			# scripts and can cause a user account to be unrecoverable
-			# except by SQL manipulation if a previously valid skin name
-			# is no longer valid.
-			wfDebug( "Skin class does not exist: $className\n" );
-			$className = 'SkinStandard';
-			require_once( "{$wgStyleDirectory}/Standard.php" );
+			# Check if we got if not failback to default skin
+			if( !class_exists( $className ) ) {
+				# DO NOT die if the class isn't found. This breaks maintenance
+				# scripts and can cause a user account to be unrecoverable
+				# except by SQL manipulation if a previously valid skin name
+				# is no longer valid.
+				wfDebug( "Skin class does not exist: $className\n" );
+				$className = 'SkinMonobook';
+				require_once( "{$wgStyleDirectory}/MonoBook.php" );
+			}
 		}
 		$skin = new $className;
 		return $skin;
@@ -155,31 +171,38 @@ class Skin extends Linker {
 		return $q;
 	}
 
-	function initPage( &$out ) {
-		global $wgFavicon, $wgScriptPath, $wgSitename, $wgLanguageCode, $wgLanguageNames;
+	function initPage( OutputPage $out ) {
+		global $wgFavicon, $wgAppleTouchIcon;
 
-		$fname = 'Skin::initPage';
-		wfProfileIn( $fname );
+		wfProfileIn( __METHOD__ );
+
+		# Generally the order of the favicon and apple-touch-icon links
+		# should not matter, but Konqueror (3.5.9 at least) incorrectly
+		# uses whichever one appears later in the HTML source.  Make sure
+		# apple-touch-icon is specified first to avoid this.
+		if( false !== $wgAppleTouchIcon ) {
+			$out->addLink( array( 'rel' => 'apple-touch-icon', 'href' => $wgAppleTouchIcon ) );
+		}
 
 		if( false !== $wgFavicon ) {
 			$out->addLink( array( 'rel' => 'shortcut icon', 'href' => $wgFavicon ) );
 		}
 
 		# OpenSearch description link
-		$out->addLink( array( 
-			'rel' => 'search', 
+		$out->addLink( array(
+			'rel' => 'search',
 			'type' => 'application/opensearchdescription+xml',
-			'href' => "$wgScriptPath/opensearch_desc.php",
-			'title' => "$wgSitename ({$wgLanguageNames[$wgLanguageCode]})",
+			'href' => wfScript( 'opensearch_desc' ),
+			'title' => wfMsgForContent( 'opensearch-desc' ),
 		));
 
 		$this->addMetadataLinks($out);
 
 		$this->mRevisionId = $out->mRevisionId;
-		
+
 		$this->preloadExistence();
 
-		wfProfileOut( $fname );
+		wfProfileOut( __METHOD__ );
 	}
 
 	/**
@@ -203,8 +226,8 @@ class Skin extends Linker {
 		$lb = new LinkBatch( $titles );
 		$lb->execute();
 	}
-	
-	function addMetadataLinks( &$out ) {
+
+	function addMetadataLinks( OutputPage $out ) {
 		global $wgTitle, $wgEnableDublinCoreRdf, $wgEnableCreativeCommonsRdf;
 		global $wgRightsPage, $wgRightsUrl;
 
@@ -240,13 +263,25 @@ class Skin extends Linker {
 		}
 	}
 
-	function outputPage( &$out ) {
-		global $wgDebugComments;
+	function setMembers(){
+		global $wgTitle, $wgUser;
+		$this->mTitle = $wgTitle;
+		$this->mUser = $wgUser;
+		$this->userpage = $wgUser->getUserPage()->getPrefixedText();
+		$this->usercss = false;
+	}
 
+	function outputPage( OutputPage $out ) {
+		global $wgDebugComments;
 		wfProfileIn( __METHOD__ );
+
+		$this->setMembers();
 		$this->initPage( $out );
 
-		$out->out( $out->headElement() );
+		// See self::afterContentHook() for documentation
+		$afterContent = $this->afterContentHook();
+
+		$out->out( $out->headElement( $this ) );
 
 		$out->out( "\n<body" );
 		$ops = $this->getBodyOptions();
@@ -264,10 +299,12 @@ class Skin extends Linker {
 		$out->out( $out->mBodytext . "\n" );
 
 		$out->out( $this->afterContent() );
+		
+		$out->out( $afterContent );
 
 		$out->out( $this->bottomScripts() );
 
-		$out->out( $out->reportTime() );
+		$out->out( wfReportTime() );
 
 		$out->out( "\n</body></html>" );
 		wfProfileOut( __METHOD__ );
@@ -276,14 +313,14 @@ class Skin extends Linker {
 	static function makeVariablesScript( $data ) {
 		global $wgJsMimeType;
 
-		$r = "<script type= \"$wgJsMimeType\">/*<![CDATA[*/\n";
+		$r = array( "<script type= \"$wgJsMimeType\">/*<![CDATA[*/" );
 		foreach ( $data as $name => $value ) {
 			$encValue = Xml::encodeJsVar( $value );
-			$r .= "var $name = $encValue;\n";
+			$r[] = "var $name = $encValue;";
 		}
-		$r .= "/*]]>*/</script>\n";
+		$r[] = "/*]]>*/</script>\n";
 
-		return $r;
+		return implode( "\n\t\t", $r );
 	}
 
 	/**
@@ -296,27 +333,42 @@ class Skin extends Linker {
 		global $wgScript, $wgStylePath, $wgUser;
 		global $wgArticlePath, $wgScriptPath, $wgServer, $wgContLang, $wgLang;
 		global $wgTitle, $wgCanonicalNamespaceNames, $wgOut, $wgArticle;
-		global $wgBreakFrames, $wgRequest;
+		global $wgBreakFrames, $wgRequest, $wgVariantArticlePath, $wgActionPaths;
 		global $wgUseAjax, $wgAjaxWatch;
+		global $wgVersion, $wgEnableAPI, $wgEnableWriteAPI;
+		global $wgRestrictionTypes, $wgLivePreview;
+		global $wgMWSuggestTemplate, $wgDBname, $wgEnableMWSuggest;
 
 		$ns = $wgTitle->getNamespace();
 		$nsname = isset( $wgCanonicalNamespaceNames[ $ns ] ) ? $wgCanonicalNamespaceNames[ $ns ] : $wgTitle->getNsText();
+		$separatorTransTable = $wgContLang->separatorTransformTable();
+		$separatorTransTable = $separatorTransTable ? $separatorTransTable : array();
+		$compactSeparatorTransTable = array(
+			implode( "\t", array_keys( $separatorTransTable ) ),
+			implode( "\t", $separatorTransTable ),
+		);
+		$digitTransTable = $wgContLang->digitTransformTable();
+		$digitTransTable = $digitTransTable ? $digitTransTable : array();
+		$compactDigitTransTable = array(
+			implode( "\t", array_keys( $digitTransTable ) ),
+			implode( "\t", $digitTransTable ),
+		);
 
-		$vars = array( 
+		$vars = array(
 			'skin' => $data['skinname'],
 			'stylepath' => $wgStylePath,
 			'wgArticlePath' => $wgArticlePath,
 			'wgScriptPath' => $wgScriptPath,
 			'wgScript' => $wgScript,
+			'wgVariantArticlePath' => $wgVariantArticlePath,
+			'wgActionPaths' => (object)$wgActionPaths,
 			'wgServer' => $wgServer,
 			'wgCanonicalNamespace' => $nsname,
-			'wgCanonicalSpecialPageName' => SpecialPage::resolveAlias( $wgTitle->getDBKey() ),
+			'wgCanonicalSpecialPageName' => SpecialPage::resolveAlias( $wgTitle->getDBkey() ),
 			'wgNamespaceNumber' => $wgTitle->getNamespace(),
 			'wgPageName' => $wgTitle->getPrefixedDBKey(),
 			'wgTitle' => $wgTitle->getText(),
 			'wgAction' => $wgRequest->getText( 'action', 'view' ),
-			'wgRestrictionEdit' => $wgTitle->getRestrictions( 'edit' ),
-			'wgRestrictionMove' => $wgTitle->getRestrictions( 'move' ),
 			'wgArticleId' => $wgTitle->getArticleId(),
 			'wgIsArticle' => $wgOut->isArticle(),
 			'wgUserName' => $wgUser->isAnon() ? NULL : $wgUser->getName(),
@@ -325,9 +377,23 @@ class Skin extends Linker {
 			'wgContentLanguage' => $wgContLang->getCode(),
 			'wgBreakFrames' => $wgBreakFrames,
 			'wgCurRevisionId' => isset( $wgArticle ) ? $wgArticle->getLatest() : 0,
+			'wgVersion' => $wgVersion,
+			'wgEnableAPI' => $wgEnableAPI,
+			'wgEnableWriteAPI' => $wgEnableWriteAPI,
+			'wgSeparatorTransformTable' => $compactSeparatorTransTable,
+			'wgDigitTransformTable' => $compactDigitTransTable,
 		);
+		
+		if( $wgUseAjax && $wgEnableMWSuggest && !$wgUser->getOption( 'disablesuggest', false )){
+			$vars['wgMWSuggestTemplate'] = SearchEngine::getMWSuggestTemplate();
+			$vars['wgDBname'] = $wgDBname;
+			$vars['wgSearchNamespaces'] = SearchEngine::userNamespaces( $wgUser );
+			$vars['wgMWSuggestMessages'] = array( wfMsg('search-mwsuggest-enabled'), wfMsg('search-mwsuggest-disabled'));
+		}
 
-		global $wgLivePreview;
+		foreach( $wgRestrictionTypes as $type )
+			$vars['wgRestriction' . ucfirst( $type )] = $wgTitle->getRestrictions( $type );
+
 		if ( $wgLivePreview && $wgUser->getOption( 'uselivepreview' ) ) {
 			$vars['wgLivepreviewMessageLoading'] = wfMsg( 'livepreview-loading' );
 			$vars['wgLivepreviewMessageReady']   = wfMsg( 'livepreview-ready' );
@@ -343,32 +409,34 @@ class Skin extends Linker {
 			$vars['wgAjaxWatch'] = $msgs;
 		}
 
+		wfRunHooks('MakeGlobalVariablesScript', array(&$vars));
+
 		return self::makeVariablesScript( $vars );
 	}
 
 	function getHeadScripts( $allowUserJs ) {
 		global $wgStylePath, $wgUser, $wgJsMimeType, $wgStyleVersion;
 
-		$r = self::makeGlobalVariablesScript( array( 'skinname' => $this->getSkinName() ) );
+		$vars = self::makeGlobalVariablesScript( array( 'skinname' => $this->getSkinName() ) );
 
-		$r .= "<script type=\"{$wgJsMimeType}\" src=\"{$wgStylePath}/common/wikibits.js?$wgStyleVersion\"></script>\n";
+		$r = array( "<script type=\"{$wgJsMimeType}\" src=\"{$wgStylePath}/common/wikibits.js?$wgStyleVersion\"></script>" );
 		global $wgUseSiteJs;
 		if ($wgUseSiteJs) {
 			$jsCache = $wgUser->isLoggedIn() ? '&smaxage=0' : '';
-			$r .= "<script type=\"$wgJsMimeType\" src=\"".
+			$r[] = "<script type=\"$wgJsMimeType\" src=\"".
 				htmlspecialchars(self::makeUrl('-',
 					"action=raw$jsCache&gen=js&useskin=" .
 					urlencode( $this->getSkinName() ) ) ) .
-				"\"><!-- site js --></script>\n";
+				"\"><!-- site js --></script>";
 		}
 		if( $allowUserJs && $wgUser->isLoggedIn() ) {
 			$userpage = $wgUser->getUserPage();
 			$userjs = htmlspecialchars( self::makeUrl(
 				$userpage->getPrefixedText().'/'.$this->getSkinName().'.js',
 				'action=raw&ctype='.$wgJsMimeType));
-			$r .= '<script type="'.$wgJsMimeType.'" src="'.$userjs."\"></script>\n";
+			$r[] = '<script type="'.$wgJsMimeType.'" src="'.$userjs."\"></script>";
 		}
-		return $r;
+		return $vars . "\t\t" . implode ( "\n\t\t", $r );
 	}
 
 	/**
@@ -395,38 +463,24 @@ class Skin extends Linker {
 			$wgRequest->getVal( 'wpEditToken' ) );
 	}
 
-	# get the user/site-specific stylesheet, SkinTemplate loads via RawPage.php (settings are cached that way)
-	function getUserStylesheet() {
-		global $wgStylePath, $wgRequest, $wgContLang, $wgSquidMaxage, $wgStyleVersion;
-		$sheet = $this->getStylesheet();
-		$s = "@import \"$wgStylePath/common/shared.css?$wgStyleVersion\";\n";
-		$s .= "@import \"$wgStylePath/common/oldshared.css?$wgStyleVersion\";\n";
-		$s .= "@import \"$wgStylePath/$sheet?$wgStyleVersion\";\n";
-		if($wgContLang->isRTL()) $s .= "@import \"$wgStylePath/common/common_rtl.css?$wgStyleVersion\";\n";
-
-		$query = "usemsgcache=yes&action=raw&ctype=text/css&smaxage=$wgSquidMaxage";
-		$s .= '@import "' . self::makeNSUrl( 'Common.css', $query, NS_MEDIAWIKI ) . "\";\n" .
-			'@import "' . self::makeNSUrl( ucfirst( $this->getSkinName() . '.css' ), $query, NS_MEDIAWIKI ) . "\";\n";
-
-		$s .= $this->doGetUserStyles();
-		return $s."\n";
-	}
-
 	/**
-	 * This returns MediaWiki:Common.js, and derived classes may add other JS.
-	 * Despite its name, it does *not* return any custom user JS from user
-	 * subpages.  The returned script is sitewide and publicly cacheable and
-	 * therefore must not include anything that varies according to user,
-	 * interface language, etc. (although it may vary by skin).  See
-	 * makeGlobalVariablesScript for things that can vary per page view and are
-	 * not cacheable.
+	 * generated JavaScript action=raw&gen=js
+	 * This returns MediaWiki:Common.js and MediaWiki:[Skinname].js concate-
+	 * nated together.  For some bizarre reason, it does *not* return any
+	 * custom user JS from subpages.  Huh?
 	 *
-	 * @return string Raw JavaScript to be returned
+	 * There's absolutely no reason to have separate Monobook/Common JSes.
+	 * Any JS that cares can just check the skin variable generated at the
+	 * top.  For now Monobook.js will be maintained, but it should be consi-
+	 * dered deprecated.
+	 *
+	 * @return string
 	 */
-	public function getUserJs() {
+	public function generateUserJs() {
+		global $wgStylePath;
+
 		wfProfileIn( __METHOD__ );
 
-		global $wgStylePath;
 		$s = "/* generated javascript */\n";
 		$s .= "var skin = '" . Xml::escapeJsString( $this->getSkinName() ) . "';\n";
 		$s .= "var stylepath = '" . Xml::escapeJsString( $wgStylePath ) . "';";
@@ -435,48 +489,38 @@ class Skin extends Linker {
 		if ( !wfEmptyMsg ( 'common.js', $commonJs ) ) {
 			$s .= $commonJs;
 		}
+
+		$s .= "\n\n/* MediaWiki:".ucfirst( $this->getSkinName() ).".js */\n";
+		// avoid inclusion of non defined user JavaScript (with custom skins only)
+		// by checking for default message content
+		$msgKey = ucfirst( $this->getSkinName() ).'.js';
+		$userJS = wfMsgForContent($msgKey);
+		if ( !wfEmptyMsg( $msgKey, $userJS ) ) {
+			$s .= $userJS;
+		}
+
 		wfProfileOut( __METHOD__ );
 		return $s;
 	}
 
 	/**
-	 * Return html code that include User stylesheets
+	 * generate user stylesheet for action=raw&gen=css
 	 */
-	function getUserStyles() {
-		$s = "<style type='text/css'>\n";
-		$s .= "/*/*/ /*<![CDATA[*/\n"; # <-- Hide the styles from Netscape 4 without hiding them from IE/Mac
-		$s .= $this->getUserStylesheet();
-		$s .= "/*]]>*/ /* */\n";
-		$s .= "</style>\n";
+	public function generateUserStylesheet() {
+		wfProfileIn( __METHOD__ );
+		$s = "/* generated user stylesheet */\n" .
+			$this->reallyGenerateUserStylesheet();
+		wfProfileOut( __METHOD__ );
 		return $s;
 	}
-
+	
 	/**
-	 * Some styles that are set by user through the user settings interface.
+	 * Split for easier subclassing in SkinSimple, SkinStandard and SkinCologneBlue
 	 */
-	function doGetUserStyles() {
-		global $wgUser, $wgUser, $wgRequest, $wgTitle, $wgAllowUserCss;
-
-		$s = '';
-
-		if( $wgAllowUserCss && $wgUser->isLoggedIn() ) { # logged in
-			if($wgTitle->isCssSubpage() && $this->userCanPreview( $wgRequest->getText( 'action' ) ) ) {
-				$s .= $wgRequest->getText('wpTextbox1');
-			} else {
-				$userpage = $wgUser->getUserPage();
-				$s.= '@import "'.self::makeUrl(
-					$userpage->getPrefixedText().'/'.$this->getSkinName().'.css',
-					'action=raw&ctype=text/css').'";'."\n";
-			}
-		}
-
-		return $s . $this->reallyDoGetUserStyles();
-	}
-
-	function reallyDoGetUserStyles() {
+	protected function reallyGenerateUserStylesheet(){
 		global $wgUser;
 		$s = '';
-		if (($undopt = $wgUser->getOption("underline")) != 2) {
+		if (($undopt = $wgUser->getOption("underline")) < 2) {
 			$underline = $undopt ? 'underline' : 'none';
 			$s .= "a { text-decoration: $underline; }\n";
 		}
@@ -487,22 +531,19 @@ class Skin extends Linker {
 a.new, #quickbar a.new,
 a.stub, #quickbar a.stub {
 	color: inherit;
-	text-decoration: inherit;
 }
 a.new:after, #quickbar a.new:after {
 	content: "?";
 	color: #CC2200;
-	text-decoration: $underline;
 }
 a.stub:after, #quickbar a.stub:after {
 	content: "!";
 	color: #772233;
-	text-decoration: $underline;
 }
 END;
 		}
 		if( $wgUser->getOption( 'justify' ) ) {
-			$s .= "#article, #bodyContent { text-align: justify; }\n";
+			$s .= "#article, #bodyContent, #mw_content { text-align: justify; }\n";
 		}
 		if( !$wgUser->getOption( 'showtoc' ) ) {
 			$s .= "#toc { display: none; }\n";
@@ -511,6 +552,86 @@ END;
 			$s .= ".editsection { display: none; }\n";
 		}
 		return $s;
+	}
+
+	/**
+	 * @private
+	 */
+	function setupUserCss( OutputPage $out ) {
+		global $wgRequest, $wgContLang, $wgUser;
+		global $wgAllowUserCss, $wgUseSiteCss, $wgSquidMaxage, $wgStylePath;
+
+		wfProfileIn( __METHOD__ );
+
+		$this->setupSkinUserCss( $out );
+
+		$siteargs = array(
+			'action' => 'raw',
+			'maxage' => $wgSquidMaxage,
+		);
+
+		// Add any extension CSS
+		foreach( $out->getExtStyle() as $tag ) {
+			$out->addStyle( $tag['href'] );
+		}
+
+		// If we use the site's dynamic CSS, throw that in, too
+		// Per-site custom styles
+		if( $wgUseSiteCss ) {
+			global $wgHandheldStyle;
+			$query = wfArrayToCGI( array(
+				'usemsgcache' => 'yes',
+				'ctype' => 'text/css',
+				'smaxage' => $wgSquidMaxage
+			) + $siteargs );
+			# Site settings must override extension css! (bug 15025)
+			$out->addStyle( self::makeNSUrl( 'Common.css', $query, NS_MEDIAWIKI ) );
+			$out->addStyle( self::makeNSUrl( 'Print.css', $query, NS_MEDIAWIKI ), 'print' );
+			if( $wgHandheldStyle ) {
+				$out->addStyle( self::makeNSUrl( 'Handheld.css', $query, NS_MEDIAWIKI ), 'handheld' );
+			}
+			$out->addStyle( self::makeNSUrl( $this->getSkinName() . '.css', $query, NS_MEDIAWIKI ) );
+		}
+
+		if( $wgUser->isLoggedIn() ) {
+			// Ensure that logged-in users' generated CSS isn't clobbered
+			// by anons' publicly cacheable generated CSS.
+			$siteargs['smaxage'] = '0';
+			$siteargs['ts'] = $wgUser->mTouched;
+		}
+		// Per-user styles based on preferences
+		$siteargs['gen'] = 'css';
+		if( ( $us = $wgRequest->getVal( 'useskin', '' ) ) !== '' ) {
+			$siteargs['useskin'] = $us;
+		}
+		$out->addStyle( self::makeUrl( '-', wfArrayToCGI( $siteargs ) ) );
+
+		// Per-user custom style pages
+		if( $wgAllowUserCss && $wgUser->isLoggedIn() ) {
+			$action = $wgRequest->getVal('action');
+			# If we're previewing the CSS page, use it
+			if( $this->mTitle->isCssSubpage() && $this->userCanPreview( $action ) ) {
+				$previewCss = $wgRequest->getText('wpTextbox1');
+				// @FIXME: properly escape the cdata!
+				$this->usercss = "/*<![CDATA[*/\n" . $previewCss . "/*]]>*/";
+			} else {
+				$out->addStyle( self::makeUrl($this->userpage . '/' . $this->getSkinName() .'.css',
+					'action=raw&ctype=text/css' ) );
+			}
+		}
+
+		wfProfileOut( __METHOD__ );
+	}
+
+	/**
+	 * Add skin specific stylesheets
+	 * @param $out OutputPage
+	 */
+	function setupSkinUserCss( OutputPage $out ) {
+		$out->addStyle( 'common/shared.css' );
+		$out->addStyle( 'common/oldshared.css' );
+		$out->addStyle( $this->getStylesheet() );
+		$out->addStyle( 'common/common_rtl.css', '', '', 'rtl' );
 	}
 
 	function getBodyOptions() {
@@ -523,22 +644,32 @@ END;
 		}
 		else $a = array( 'bgcolor' => '#FFFFFF' );
 		if($wgOut->isArticle() && $wgUser->getOption('editondblclick') &&
-		  $wgTitle->userCan( 'edit' ) ) {
+		  $wgTitle->quickUserCan( 'edit' ) ) {
 			$s = $wgTitle->getFullURL( $this->editUrlOptions() );
-			$s = 'document.location = "' .wfEscapeJSString( $s ) .'";';
+			$s = 'document.location = "' .Xml::escapeJsString( $s ) .'";';
 			$a += array ('ondblclick' => $s);
 
 		}
 		$a['onload'] = $wgOut->getOnloadHandler();
-		if( $wgUser->getOption( 'editsectiononrightclick' ) ) {
-			if( $a['onload'] != '' ) {
-				$a['onload'] .= ';';
-			}
-			$a['onload'] .= 'setupRightClickEdit()';
-		}
-		$a['class'] = 'ns-'.$wgTitle->getNamespace().' '.($wgContLang->isRTL() ? "rtl" : "ltr").
-		' '.Sanitizer::escapeClass( 'page-'.$wgTitle->getPrefixedText() );
+		$a['class'] =
+			'mediawiki' .
+			' '.( $wgContLang->isRTL() ? "rtl" : "ltr" ).
+			' '.$this->getPageClasses( $wgTitle ) .
+			' skin-'. Sanitizer::escapeClass( $this->getSkinName( ) );
 		return $a;
+	}
+	
+	function getPageClasses( $title ) {
+		$numeric = 'ns-'.$title->getNamespace();
+		if( $title->getNamespace() == NS_SPECIAL ) {
+			$type = "ns-special";
+		} elseif( $title->isTalkPage() ) {
+			$type = "ns-talk";
+		} else {
+			$type = "ns-subject";
+		}
+		$name = Sanitizer::escapeClass( 'page-'.$title->getPrefixedText() );
+		return "$numeric $type $name";
 	}
 
 	/**
@@ -577,11 +708,11 @@ END;
 		$s .= "\n<div id='content'>\n<div id='topbar'>\n" .
 		  "<table border='0' cellspacing='0' width='98%'>\n<tr>\n";
 
-		$shove = ($qb != 0);
-		$left = ($qb == 1 || $qb == 3);
-		if($wgContLang->isRTL()) $left = !$left;
+		$shove = ( $qb != 0 );
+		$left = ( $qb == 1 || $qb == 3 );
+		if( $wgContLang->isRTL() ) $left = !$left;
 
-		if ( !$shove ) {
+		if( !$shove ) {
 			$s .= "<td class='top' align='left' valign='top' rowspan='{$rows}'>\n" .
 			  $this->logoText() . '</td>';
 		} elseif( $left ) {
@@ -620,9 +751,9 @@ END;
 	}
 
 
-	function getCategoryLinks () {
+	function getCategoryLinks() {
 		global $wgOut, $wgTitle, $wgUseCategoryBrowser;
-		global $wgContLang;
+		global $wgContLang, $wgUser;
 
 		if( count( $wgOut->mCategoryLinks ) == 0 ) return '';
 
@@ -634,15 +765,37 @@ END;
 		$dir = $wgContLang->isRTL() ? 'rtl' : 'ltr';
 		$embed = "<span dir='$dir'>";
 		$pop = '</span>';
-		$t = $embed . implode ( "{$pop} {$sep} {$embed}" , $wgOut->mCategoryLinks ) . $pop;
 
-		$msg = wfMsgExt( 'pagecategories', array( 'parsemag', 'escape' ), count( $wgOut->mCategoryLinks ) );
-		$s = $this->makeLinkObj( Title::newFromText( wfMsgForContent('pagecategorieslink') ), $msg )
-			. ': ' . $t;
+		$allCats = $wgOut->getCategoryLinks();
+		$s = '';
+		$colon = wfMsgExt( 'colon-separator', 'escapenoentities' );
+		if ( !empty( $allCats['normal'] ) ) {
+			$t = $embed . implode ( "{$pop} {$sep} {$embed}" , $allCats['normal'] ) . $pop;
+
+			$msg = wfMsgExt( 'pagecategories', array( 'parsemag', 'escapenoentities' ), count( $allCats['normal'] ) );
+			$s .= '<div id="mw-normal-catlinks">' .
+				$this->link( Title::newFromText( wfMsgForContent('pagecategorieslink') ), $msg )
+				. $colon . $t . '</div>';
+		}
+
+		# Hidden categories
+		if ( isset( $allCats['hidden'] ) ) {
+			if ( $wgUser->getBoolOption( 'showhiddencats' ) ) {
+				$class ='mw-hidden-cats-user-shown';
+			} elseif ( $wgTitle->getNamespace() == NS_CATEGORY ) {
+				$class = 'mw-hidden-cats-ns-shown';
+			} else {
+				$class = 'mw-hidden-cats-hidden';
+			}
+			$s .= "<div id=\"mw-hidden-catlinks\" class=\"$class\">" .
+				wfMsgExt( 'hidden-categories', array( 'parsemag', 'escapenoentities' ), count( $allCats['hidden'] ) ) .
+				$colon . $embed . implode( "$pop $sep $embed", $allCats['hidden'] ) . $pop .
+				"</div>";
+		}
 
 		# optional 'dmoz-like' category browser. Will be shown under the list
 		# of categories an article belong to
-		if($wgUseCategoryBrowser) {
+		if( $wgUseCategoryBrowser ){
 			$s .= '<br /><hr />';
 
 			# get a big array of the parents tree
@@ -665,7 +818,7 @@ END;
 	 * @param &skin Object: skin passed by reference
 	 * @return String separated by &gt;, terminate with "\n"
 	 */
-	function drawCategoryBrowser($tree, &$skin) {
+	function drawCategoryBrowser( $tree, &$skin ){
 		$return = '';
 		foreach ($tree as $element => $parent) {
 			if (empty($parent)) {
@@ -676,16 +829,24 @@ END;
 				$return .= Skin::drawCategoryBrowser($parent, $skin) . ' &gt; ';
 			}
 			# add our current element to the list
-			$eltitle = Title::NewFromText($element);
-			$return .=  $skin->makeLinkObj( $eltitle, $eltitle->getText() ) ;
+			$eltitle = Title::newFromText($element);
+			$return .=  $skin->link( $eltitle, $eltitle->getText() ) ;
 		}
 		return $return;
 	}
 
 	function getCategories() {
 		$catlinks=$this->getCategoryLinks();
-		if(!empty($catlinks)) {
-			return "<p class='catlinks'>{$catlinks}</p>";
+
+		$classes = 'catlinks';
+
+		if( strpos( $catlinks, '<div id="mw-normal-catlinks">' ) === false &&
+			strpos( $catlinks, '<div id="mw-hidden-catlinks" class="mw-hidden-cats-hidden">' ) !== false ) {
+			$classes .= ' catlinks-allhidden';
+		}
+
+		if( !empty( $catlinks ) ){
+			return "<div id='catlinks' class='$classes'>{$catlinks}</div>";
 		}
 	}
 
@@ -694,8 +855,43 @@ END;
 	}
 
 	/**
-	 * This gets called shortly before the \</body\> tag.
-	 * @return String HTML to be put before \</body\> 
+	 * This runs a hook to allow extensions placing their stuff after content
+	 * and article metadata (e.g. categories).
+	 * Note: This function has nothing to do with afterContent().
+	 *
+	 * This hook is placed here in order to allow using the same hook for all
+	 * skins, both the SkinTemplate based ones and the older ones, which directly
+	 * use this class to get their data.
+	 *
+	 * The output of this function gets processed in SkinTemplate::outputPage() for
+	 * the SkinTemplate based skins, all other skins should directly echo it.
+	 *
+	 * Returns an empty string by default, if not changed by any hook function.
+	 */
+	protected function afterContentHook() {
+		$data = "";
+
+		if( wfRunHooks( 'SkinAfterContent', array( &$data ) ) ){
+			// adding just some spaces shouldn't toggle the output
+			// of the whole <div/>, so we use trim() here
+			if( trim( $data ) != '' ){
+				// Doing this here instead of in the skins to
+				// ensure that the div has the same ID in all
+				// skins
+				$data = "<div id='mw-data-after-content'>\n" .
+					"\t$data\n" .
+					"</div>\n";
+			}
+		} else {
+			wfDebug( "Hook SkinAfterContent changed output processing.\n" );
+		}
+
+		return $data;
+	}
+
+	/**
+	 * This gets called shortly before the </body> tag.
+	 * @return String HTML to be put before </body>
 	 */
 	function afterContent() {
 		$printfooter = "<div class=\"printfooter\">\n" . $this->printFooter() . "</div>\n";
@@ -703,8 +899,8 @@ END;
 	}
 
 	/**
-	 * This gets called shortly before the \</body\> tag.
-	 * @return String HTML-wrapped JS code to be put before \</body\> 
+	 * This gets called shortly before the </body> tag.
+	 * @return String HTML-wrapped JS code to be put before </body>
 	 */
 	function bottomScripts() {
 		global $wgJsMimeType;
@@ -726,7 +922,7 @@ END;
 	}
 
 	/** overloaded by derived classes */
-	function doAfterContent() { }
+	function doAfterContent() { return "</div></div>"; }
 
 	function pageTitleLinks() {
 		global $wgOut, $wgTitle, $wgUser, $wgRequest;
@@ -746,7 +942,7 @@ END;
 		}
 
 		if ( $wgOut->isArticleRelated() ) {
-			if ( $wgTitle->getNamespace() == NS_IMAGE ) {
+			if ( $wgTitle->getNamespace() == NS_FILE ) {
 				$name = $wgTitle->getDBkey();
 				$image = wfFindFile( $wgTitle );
 				if( $image ) {
@@ -782,12 +978,12 @@ END;
 	}
 
 	function getUndeleteLink() {
-		global $wgUser, $wgTitle, $wgContLang, $action;
+		global $wgUser, $wgTitle, $wgContLang, $wgLang, $action;
 		if(	$wgUser->isAllowed( 'deletedhistory' ) &&
 			(($wgTitle->getArticleId() == 0) || ($action == "history")) &&
 			($n = $wgTitle->isDeleted() ) )
 		{
-			if ( $wgUser->isAllowed( 'delete' ) ) {
+			if ( $wgUser->isAllowed( 'undelete' ) ) {
 				$msg = 'thisisdeleted';
 			} else {
 				$msg = 'viewdeleted';
@@ -795,7 +991,7 @@ END;
 			return wfMsg( $msg,
 				$this->makeKnownLinkObj(
 					SpecialPage::getTitleFor( 'Undelete', $wgTitle->getPrefixedDBkey() ),
-					wfMsgExt( 'restorelink', array( 'parsemag', 'escape' ), $n ) ) );
+					wfMsgExt( 'restorelink', array( 'parsemag', 'escape' ), $wgLang->formatNum( $n ) ) ) );
 		}
 		return '';
 	}
@@ -817,7 +1013,7 @@ END;
 
 	function pageTitle() {
 		global $wgOut;
-		$s = '<h1 class="pagetitle">' . htmlspecialchars( $wgOut->getPageTitle() ) . '</h1>';
+		$s = '<h1 class="pagetitle">' . $wgOut->getPageTitle() . '</h1>';
 		return $s;
 	}
 
@@ -827,7 +1023,7 @@ END;
 		$sub = $wgOut->getSubtitle();
 		if ( '' == $sub ) {
 			global $wgExtraSubtitle;
-			$sub = wfMsg( 'tagline' ) . $wgExtraSubtitle;
+			$sub = wfMsgExt( 'tagline', 'parsemag' ) . $wgExtraSubtitle;
 		}
 		$subpages = $this->subPageSubtitle();
 		$sub .= !empty($subpages)?"</p><p class='subpages'>$subpages":'';
@@ -836,28 +1032,37 @@ END;
 	}
 
 	function subPageSubtitle() {
-		global $wgOut,$wgTitle,$wgNamespacesWithSubpages;
 		$subpages = '';
-		if($wgOut->isArticle() && !empty($wgNamespacesWithSubpages[$wgTitle->getNamespace()])) {
+		if(!wfRunHooks('SkinSubPageSubtitle', array(&$subpages)))
+			return $subpages;
+
+		global $wgOut, $wgTitle;
+		if($wgOut->isArticle() && MWNamespace::hasSubpages( $wgTitle->getNamespace() )) {
 			$ptext=$wgTitle->getPrefixedText();
 			if(preg_match('/\//',$ptext)) {
 				$links = explode('/',$ptext);
+				array_pop( $links );
 				$c = 0;
 				$growinglink = '';
+				$display = '';
 				foreach($links as $link) {
-					$c++;
-					if ($c<count($links)) {
-						$growinglink .= $link;
-						$getlink = $this->makeLink( $growinglink, htmlspecialchars( $link ) );
-						if(preg_match('/class="new"/i',$getlink)) { break; } # this is a hack, but it saves time
+					$growinglink .= $link;
+					$display .= $link;
+					$linkObj = Title::newFromText( $growinglink );
+					if( is_object( $linkObj ) && $linkObj->exists() ){
+						$getlink = $this->makeKnownLinkObj( $linkObj, htmlspecialchars( $display ) );
+						$c++;
 						if ($c>1) {
 							$subpages .= ' | ';
 						} else  {
 							$subpages .= '&lt; ';
 						}
 						$subpages .= $getlink;
-						$growinglink .= '/';
+						$display = '';
+					} else {
+						$display .= '/';
 					}
+					$growinglink .= '/';
 				}
 			}
 		}
@@ -875,47 +1080,54 @@ END;
 	function nameAndLogin() {
 		global $wgUser, $wgTitle, $wgLang, $wgContLang;
 
-		$lo = $wgContLang->specialPage( 'Userlogout' );
+		$logoutPage = $wgContLang->specialPage( 'Userlogout' );
 
-		$s = '';
+		$ret = '';
 		if ( $wgUser->isAnon() ) {
 			if( $this->showIPinHeader() ) {
-				$n = wfGetIP();
+				$name = wfGetIP();
 
-				$tl = $this->makeKnownLinkObj( $wgUser->getTalkPage(),
-				  $wgLang->getNsText( NS_TALK ) );
+				$talkLink = $this->link( $wgUser->getTalkPage(),
+					$wgLang->getNsText( NS_TALK ) );
 
-				$s .= $n . ' ('.$tl.')';
+				$ret .= "$name ($talkLink)";
 			} else {
-				$s .= wfMsg('notloggedin');
+				$ret .= wfMsg( 'notloggedin' );
 			}
 
-			$rt = $wgTitle->getPrefixedURL();
-			if ( 0 == strcasecmp( urlencode( $lo ), $rt ) ) {
-				$q = '';
-			} else { $q = "returnto={$rt}"; }
+			$returnTo = $wgTitle->getPrefixedDBkey();
+			$query = array();
+			if ( $logoutPage != $returnTo ) {
+				$query['returnto'] = $returnTo;
+			}
 
-			$s .= "\n<br />" . $this->makeKnownLinkObj(
+			$loginlink = $wgUser->isAllowed( 'createaccount' )
+				? 'nav-login-createaccount'
+				: 'login';
+			$ret .= "\n<br />" . $this->link(
 				SpecialPage::getTitleFor( 'Userlogin' ),
-				wfMsg( 'login' ), $q );
+				wfMsg( $loginlink ), array(), $query
+			);
 		} else {
-			$n = $wgUser->getName();
-			$rt = $wgTitle->getPrefixedURL();
-			$tl = $this->makeKnownLinkObj( $wgUser->getTalkPage(),
-			  $wgLang->getNsText( NS_TALK ) );
+			$returnTo = $wgTitle->getPrefixedDBkey();
+			$talkLink = $this->link( $wgUser->getTalkPage(),
+				$wgLang->getNsText( NS_TALK ) );
 
-			$tl = " ({$tl})";
-
-			$s .= $this->makeKnownLinkObj( $wgUser->getUserPage(),
-			  $n ) . "{$tl}<br />" .
-			  $this->makeKnownLinkObj( SpecialPage::getTitleFor( 'Userlogout' ), wfMsg( 'logout' ),
-			  "returnto={$rt}" ) . ' | ' .
-			  $this->specialLink( 'preferences' );
+			$ret .= $this->link( $wgUser->getUserPage(),
+				htmlspecialchars( $wgUser->getName() ) );
+			$ret .= " ($talkLink)<br />";
+			$ret .= $this->link(
+				SpecialPage::getTitleFor( 'Userlogout' ), wfMsg( 'logout' ),
+				array(), array( 'returnto' => $returnTo )
+			);
+			$ret .= ' | ' . $this->specialLink( 'preferences' );
 		}
-		$s .= ' | ' . $this->makeKnownLink( wfMsgForContent( 'helppage' ),
-		  wfMsg( 'help' ) );
+		$ret .= ' | ' . $this->link(
+			Title::newFromText( wfMsgForContent( 'helppage' ) ),
+			wfMsg( 'help' )
+		);
 
-		return $s;
+		return $ret;
 	}
 
 	function getSearchLink() {
@@ -931,13 +1143,16 @@ END;
 		global $wgRequest;
 		$search = $wgRequest->getText( 'search' );
 
-		$s = '<form name="search" class="inline" method="post" action="'
+		$s = '<form id="searchform'.$this->searchboxes.'" name="search" class="inline" method="post" action="'
 		  . $this->escapeSearchLink() . "\">\n"
-		  . '<input type="text" name="search" size="19" value="'
+		  . '<input type="text" id="searchInput'.$this->searchboxes.'" name="search" size="19" value="'
 		  . htmlspecialchars(substr($search,0,256)) . "\" />\n"
 		  . '<input type="submit" name="go" value="' . wfMsg ('searcharticle') . '" />&nbsp;'
 		  . '<input type="submit" name="fulltext" value="' . wfMsg ('searchbutton') . "\" />\n</form>";
 
+		// Ensure unique id's for search boxes made after the first
+		$this->searchboxes = $this->searchboxes == '' ? 2 : $this->searchboxes + 1;
+		
 		return $s;
 	}
 
@@ -954,14 +1169,14 @@ END;
 		}
 		# Many people don't like this dropdown box
 		#$s .= $sep . $this->specialPagesList();
-		
+
 		$s .= $this->variantLinks();
-		
+
 		$s .= $this->extensionTabLinks();
 
 		return $s;
 	}
-	
+
 	/**
 	 * Compatibility for extensions adding functionality through tabs.
 	 * Eventually these old skins should be replaced with SkinTemplate-based
@@ -979,7 +1194,7 @@ END;
 		}
 		return $s;
 	}
-	
+
 	/**
 	 * Language/charset variant links for classic-style skins
 	 * @return string
@@ -1050,6 +1265,7 @@ END;
 		$oldid = $wgRequest->getVal( 'oldid' );
 		$diff = $wgRequest->getVal( 'diff' );
 		if ( ! $wgOut->isArticle() ) { return ''; }
+		if( !$wgArticle instanceOf Article ) { return ''; }
 		if ( isset( $oldid ) || isset( $diff ) ) { return ''; }
 		if ( 0 == $wgArticle->getID() ) { return ''; }
 
@@ -1061,35 +1277,36 @@ END;
 			}
 		}
 
-	        if (isset($wgMaxCredits) && $wgMaxCredits != 0) {
-		    require_once('Credits.php');
-		    $s .= ' ' . getCredits($wgArticle, $wgMaxCredits, $wgShowCreditsIfMax);
+		if( $wgMaxCredits != 0 ){
+			$s .= ' ' . Credits::getCredits( $wgArticle, $wgMaxCredits, $wgShowCreditsIfMax );
 		} else {
-		    $s .= $this->lastModified();
+			$s .= $this->lastModified();
 		}
 
-		if ($wgPageShowWatchingUsers && $wgUser->getOption( 'shownumberswatching' )) {
+		if( $wgPageShowWatchingUsers && $wgUser->getOption( 'shownumberswatching' ) ) {
 			$dbr = wfGetDB( DB_SLAVE );
 			$watchlist = $dbr->tableName( 'watchlist' );
 			$sql = "SELECT COUNT(*) AS n FROM $watchlist
-				WHERE wl_title='" . $dbr->strencode($wgTitle->getDBKey()) .
+				WHERE wl_title='" . $dbr->strencode($wgTitle->getDBkey()) .
 				"' AND  wl_namespace=" . $wgTitle->getNamespace() ;
 			$res = $dbr->query( $sql, 'Skin::pageStats');
 			$x = $dbr->fetchObject( $res );
-			$s .= ' ' . wfMsg('number_of_watching_users_pageview', $x->n );
+
+			$s .= ' ' . wfMsgExt( 'number_of_watching_users_pageview',
+				array( 'parseinline' ), $wgLang->formatNum($x->n)
+			);
 		}
 
 		return $s . ' ' .  $this->getCopyright();
 	}
 
 	function getCopyright( $type = 'detect' ) {
-		global $wgRightsPage, $wgRightsUrl, $wgRightsText, $wgRequest;
+		global $wgRightsPage, $wgRightsUrl, $wgRightsText, $wgRequest, $wgArticle;
 
 		if ( $type == 'detect' ) {
-			$oldid = $wgRequest->getVal( 'oldid' );
 			$diff = $wgRequest->getVal( 'diff' );
-
-			if ( !is_null( $oldid ) && is_null( $diff ) && wfMsgForContent( 'history_copyright' ) !== '-' ) {
+			$isCur = $wgArticle && $wgArticle->isCurrent();
+			if ( is_null( $diff ) && !$isCur && wfMsgForContent( 'history_copyright' ) !== '-' ) {
 				$type = 'history';
 			} else {
 				$type = 'normal';
@@ -1107,6 +1324,8 @@ END;
 			$link = $this->makeKnownLink( $wgRightsPage, $wgRightsText );
 		} elseif( $wgRightsUrl ) {
 			$link = $this->makeExternalLink( $wgRightsUrl, $wgRightsText );
+		} elseif( $wgRightsText ) {
+			$link = $wgRightsText;
 		} else {
 			# Give up now
 			return $out;
@@ -1143,9 +1362,12 @@ END;
 	}
 
 	function lastModified() {
-		global $wgLang, $wgArticle, $wgLoadBalancer;
-
-		$timestamp = $wgArticle->getTimestamp();
+		global $wgLang, $wgArticle;
+		if( $this->mRevisionId ) {
+			$timestamp = Revision::getTimestampFromId( $wgArticle->getTitle(), $this->mRevisionId );
+		} else {
+			$timestamp = $wgArticle->getTimestamp();
+		}
 		if ( $timestamp ) {
 			$d = $wgLang->date( $timestamp, true );
 			$t = $wgLang->time( $timestamp, true );
@@ -1153,7 +1375,7 @@ END;
 		} else {
 			$s = '';
 		}
-		if ( $wgLoadBalancer->getLaggedSlaveMode() ) {
+		if ( wfGetLB()->getLaggedSlaveMode() ) {
 			$s .= ' <strong>' . wfMsg( 'laggedslavemode' ) . '</strong>';
 		}
 		return $s;
@@ -1186,7 +1408,7 @@ END;
 		$sp = wfMsg( 'specialpages' );
 		$spp = $wgContLang->specialPage( 'Specialpages' );
 
-		$s = '<form id="specialpages" method="get" class="inline" ' .
+		$s = '<form id="specialpages" method="get" ' .
 		  'action="' . htmlspecialchars( "{$wgServer}{$wgRedirectScript}" ) . "\">\n";
 		$s .= "<select name=\"wpDropdown\">\n";
 		$s .= "<option value=\"{$spp}\">{$sp}</option>\n";
@@ -1222,7 +1444,8 @@ END;
 			// Otherwise, we display the link for the user, described in their
 			// language (which may or may not be the same as the default language),
 			// but we make the link target be the one site-wide page.
-			return $this->makeKnownLink( wfMsgForContent( $page ), wfMsg( $desc ) );
+			return $this->makeKnownLink( wfMsgForContent( $page ),
+				wfMsgExt( $desc, array( 'parsemag', 'escapenoentities' ) ) );
 		}
 	}
 
@@ -1241,11 +1464,13 @@ END;
 	function editThisPage() {
 		global $wgOut, $wgTitle;
 
-		if ( ! $wgOut->isArticleRelated() ) {
+		if ( !$wgOut->isArticleRelated() ) {
 			$s = wfMsg( 'protectedpage' );
 		} else {
-			if ( $wgTitle->userCan( 'edit' ) ) {
+			if( $wgTitle->quickUserCan( 'edit' ) && $wgTitle->exists() ) {
 				$t = wfMsg( 'editthispage' );
+			} elseif( $wgTitle->quickUserCan( 'create' ) && !$wgTitle->exists() ) {
+				$t = wfMsg( 'create-this-page' );
 			} else {
 				$t = wfMsg( 'viewsource' );
 			}
@@ -1329,7 +1554,7 @@ END;
 	function moveThisPage() {
 		global $wgTitle;
 
-		if ( $wgTitle->userCan( 'move' ) ) {
+		if ( $wgTitle->quickUserCan( 'move' ) ) {
 			return $this->makeKnownLinkObj( SpecialPage::getTitleFor( 'Movepage' ),
 			  wfMsg( 'movethispage' ), 'target=' . $wgTitle->getPrefixedURL() );
 		} else {
@@ -1348,34 +1573,30 @@ END;
 	function whatLinksHere() {
 		global $wgTitle;
 
-		return $this->makeKnownLinkObj( 
-			SpecialPage::getTitleFor( 'Whatlinkshere', $wgTitle->getPrefixedDBkey() ), 
+		return $this->makeKnownLinkObj(
+			SpecialPage::getTitleFor( 'Whatlinkshere', $wgTitle->getPrefixedDBkey() ),
 			wfMsg( 'whatlinkshere' ) );
 	}
 
 	function userContribsLink() {
 		global $wgTitle;
 
-		return $this->makeKnownLinkObj( 
+		return $this->makeKnownLinkObj(
 			SpecialPage::getTitleFor( 'Contributions', $wgTitle->getDBkey() ),
 			wfMsg( 'contributions' ) );
 	}
 
 	function showEmailUser( $id ) {
-		global $wgEnableEmail, $wgEnableUserEmail, $wgUser;
-		return $wgEnableEmail &&
-		       $wgEnableUserEmail &&
-		       $wgUser->isLoggedIn() && # show only to signed in users
-		       0 != $id; # we can only email to non-anons ..
-#		       '' != $id->getEmail() && # who must have an email address stored ..
-#		       0 != $id->getEmailauthenticationtimestamp() && # .. which is authenticated
-#		       1 != $wgUser->getOption('disablemail'); # and not disabled
+		global $wgUser;
+		$targetUser = User::newFromId( $id );
+		return	$wgUser->canSendEmail() && # the sending user must have a confirmed email address
+			$targetUser->canReceiveEmail(); # the target user must have a confirmed email address and allow emails from users
 	}
 
 	function emailUserLink() {
 		global $wgTitle;
 
-		return $this->makeKnownLinkObj( 
+		return $this->makeKnownLinkObj(
 			SpecialPage::getTitleFor( 'Emailuser', $wgTitle->getDBkey() ),
 			wfMsg( 'emailuser' ) );
 	}
@@ -1386,8 +1607,8 @@ END;
 		if ( ! $wgOut->isArticleRelated() ) {
 			return '(' . wfMsg( 'notanarticle' ) . ')';
 		} else {
-			return $this->makeKnownLinkObj( 
-				SpecialPage::getTitleFor( 'Recentchangeslinked', $wgTitle->getPrefixedDBkey() ), 
+			return $this->makeKnownLinkObj(
+				SpecialPage::getTitleFor( 'Recentchangeslinked', $wgTitle->getPrefixedDBkey() ),
 				wfMsg( 'recentchangeslinked' ) );
 		}
 	}
@@ -1430,12 +1651,6 @@ END;
 		return $s;
 	}
 
-	function bugReportsLink() {
-		$s = $this->makeKnownLink( wfMsgForContent( 'bugreportspage' ),
-		  wfMsg( 'bugreports' ) );
-		return $s;
-	}
-
 	function talkLink() {
 		global $wgTitle;
 
@@ -1443,6 +1658,8 @@ END;
 			# No discussion links for special pages
 			return '';
 		}
+
+		$linkOptions = array();
 
 		if( $wgTitle->isTalkPage() ) {
 			$link = $wgTitle->getSubjectPage();
@@ -1456,8 +1673,11 @@ END;
 				case NS_PROJECT:
 					$text = wfMsg( 'projectpage' );
 					break;
-				case NS_IMAGE:
+				case NS_FILE:
 					$text = wfMsg( 'imagepage' );
+					# Make link known if image exists, even if the desc. page doesn't.
+					if( wfFindFile( $link ) )
+						$linkOptions[] = 'known';
 					break;
 				case NS_MEDIAWIKI:
 					$text = wfMsg( 'mediawikipage' );
@@ -1479,7 +1699,7 @@ END;
 			$text = wfMsg( 'talkpage' );
 		}
 
-		$s = $this->makeLinkObj( $link, $text );
+		$s = $this->link( $link, $text, array(), array(), $linkOptions );
 
 		return $s;
 	}
@@ -1490,18 +1710,18 @@ END;
 		if ( $wgTitle->getNamespace() == NS_SPECIAL ) {
 			return '';
 		}
-		
+
 		# __NEWSECTIONLINK___ changes behaviour here
 		# If it's present, the link points to this page, otherwise
 		# it points to the talk page
 		if( $wgTitle->isTalkPage() ) {
-			$title =& $wgTitle;
+			$title = $wgTitle;
 		} elseif( $wgOut->showNewSectionLink() ) {
-			$title =& $wgTitle;
+			$title = $wgTitle;
 		} else {
-			$title =& $wgTitle->getTalkPage();
+			$title = $wgTitle->getTalkPage();
 		}
-		
+
 		return $this->makeKnownLinkObj( $title, wfMsg( 'postcomment' ), 'action=edit&section=new' );
 	}
 
@@ -1587,43 +1807,41 @@ END;
 	 * Build an array that represents the sidebar(s), the navigation bar among them
 	 *
 	 * @return array
-	 * @private
 	 */
 	function buildSidebar() {
-		global $parserMemc, $wgEnableSidebarCache;
-		global $wgLang, $wgContLang;
+		global $parserMemc, $wgEnableSidebarCache, $wgSidebarCacheExpiry;
+		global $wgLang;
+		wfProfileIn( __METHOD__ );
 
-		$fname = 'SkinTemplate::buildSidebar';
+		$key = wfMemcKey( 'sidebar', $wgLang->getCode() );
 
-		wfProfileIn( $fname );
-
-		$key = wfMemcKey( 'sidebar' );
-		$cacheSidebar = $wgEnableSidebarCache &&
-			($wgLang->getCode() == $wgContLang->getCode());
-		
-		if ($cacheSidebar) {
+		if ( $wgEnableSidebarCache ) {
 			$cachedsidebar = $parserMemc->get( $key );
-			if ($cachedsidebar!="") {
-				wfProfileOut($fname);
+			if ( $cachedsidebar ) {
+				wfProfileOut( __METHOD__ );
 				return $cachedsidebar;
 			}
 		}
 
 		$bar = array();
 		$lines = explode( "\n", wfMsgForContent( 'sidebar' ) );
+		$heading = '';
 		foreach ($lines as $line) {
 			if (strpos($line, '*') !== 0)
 				continue;
 			if (strpos($line, '**') !== 0) {
 				$line = trim($line, '* ');
 				$heading = $line;
+				if( !array_key_exists($heading, $bar) ) $bar[$heading] = array();
 			} else {
 				if (strpos($line, '|') !== false) { // sanity check
-					$line = explode( '|' , trim($line, '* '), 2 );
+					$line = array_map('trim', explode( '|' , trim($line, '* '), 2 ) );
 					$link = wfMsgForContent( $line[0] );
 					if ($link == '-')
 						continue;
-					if (wfEmptyMsg($line[1], $text = wfMsg($line[1])))
+
+					$text = wfMsgExt($line[1], 'parsemag');
+					if (wfEmptyMsg($line[1], $text))
 						$text = $line[1];
 					if (wfEmptyMsg($line[0], $link))
 						$link = $line[0];
@@ -1649,10 +1867,9 @@ END;
 				} else { continue; }
 			}
 		}
-		if ($cacheSidebar)
-			$parserMemc->set( $key, $bar, 86400 );
-		wfProfileOut( $fname );
+		wfRunHooks('SkinBuildSidebar', array($this, &$bar));
+		if ( $wgEnableSidebarCache ) $parserMemc->set( $key, $bar, $wgSidebarCacheExpiry );
+		wfProfileOut( __METHOD__ );
 		return $bar;
 	}
-	
 }

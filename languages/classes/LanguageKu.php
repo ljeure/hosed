@@ -1,19 +1,21 @@
 <?php
-/** Kurdish
-  * converter routines
-  *
-  * @addtogroup Language
-  */
-
 require_once( dirname(__FILE__).'/../LanguageConverter.php' );
 require_once( dirname(__FILE__).'/LanguageKu_ku.php' );
 
+/** Kurdish
+ * converter routines
+ *
+ * @ingroup Language
+ */
 class KuConverter extends LanguageConverter {
 	var $mArabicToLatin = array(
 		'ب' => 'b', 'ج' => 'c', 'چ' => 'ç', 'د' => 'd', 'ف' => 'f', 'گ' => 'g', 'ھ' => 'h',
 		'ہ' => 'h', 'ه' => 'h', 'ح' => 'h', 'ژ' => 'j', 'ك' => 'k', 'ک' => 'k', 'ل' => 'l',
 		'م' => 'm', 'ن' => 'n', 'پ' => 'p', 'ق' => 'q', 'ر' => 'r', 'س' => 's', 'ش' => 'ş',
-		'ت' => 't', 'ڤ' => 'v', 'خ' => 'x', 'غ' => 'x', 'ز' => 'z', 
+		'ت' => 't', 'ڤ' => 'v', 'خ' => 'x', 'غ' => 'x', 'ز' => 'z',
+
+// ک و => ku -- ist richtig
+//  و ك=> ku -- ist auch richtig
 
 		/* Doppel- und Halbvokale */
 		'ڵ' => 'll', #ll
@@ -31,9 +33,21 @@ class KuConverter extends LanguageConverter {
 		'ۆ'  => 'o',
 		'و'  => 'w',
 		'ئ'  => '', # initial hemze should not be shown
-		'،'  => ',', 
+		'،'  => ',',
 		'ع'  => '\'', # ayn
 		'؟'  => '?',
+
+		# digits
+		'٠' => '0', # &#x0660;
+		'١' => '1', # &#x0661;
+		'٢' => '2', # &#x0662;
+		'٣' => '3', # &#x0663;
+		'٤' => '4', # &#x0664;
+		'٥' => '5', # &#x0665;
+		'٦' => '6', # &#x0666;
+		'٧' => '7', # &#x0667;
+		'٨' => '8', # &#x0668;
+		'٩' => '9', # &#x0669;
 	);
 
 	var $mLatinToArabic = array(
@@ -67,7 +81,7 @@ class KuConverter extends LanguageConverter {
 		'u' => 'و',
 		'û' => 'وو',
 		'w' => 'و',
-		',' => '،', 
+		',' => '،',
 		'?' => '؟',
 
 		# Try to replace the leading vowel
@@ -93,9 +107,22 @@ class KuConverter extends LanguageConverter {
 		' U' => 'ئو ',
 		' Û' => 'ئوو ',
 		# eyn erstmal deaktivieren, einfache Anführungsstriche sind einfach zu häufig, um sie als eyn zu interpretieren
-		# '\'' => 'ع', 
+		# '\'' => 'ع',
 
-	);
+/*		# deactivated for now, breaks links i.e. in header of Special:Recentchanges :-(
+		# digits
+		'0' => '٠', # &#x0660;
+		'1' => '١', # &#x0661;
+		'2' => '٢', # &#x0662;
+		'3' => '٣', # &#x0663;
+		'4' => '٤', # &#x0664;
+		'5' => '٥', # &#x0665;
+		'6' => '٦', # &#x0666;
+		'7' => '٧', # &#x0667;
+		'8' => '٨', # &#x0668;
+		'9' => '٩', # &#x0669;
+*/
+		);
 
 	function loadDefaultTables() {
 		$this->mTables = array(
@@ -105,12 +132,11 @@ class KuConverter extends LanguageConverter {
 		);
 	}
 
-
 	// Do not convert content on talk pages
 	function parserConvert( $text, &$parser ){
 		if(is_object($parser->getTitle() ) && $parser->getTitle()->isTalkPage())
 			$this->mDoContentConvert=false;
-		else 
+		else
 			$this->mDoContentConvert=true;
 
 		return parent::parserConvert($text, $parser );
@@ -118,11 +144,11 @@ class KuConverter extends LanguageConverter {
 
 	/*
 	 * A function wrapper:
-	 *   - if there is no selected variant, leave the link 
+	 *   - if there is no selected variant, leave the link
 	 *     names as they were
 	 *   - do not try to find variants for usernames
 	 */
-	function findVariantLink( &$link, &$nt ) {
+	function findVariantLink( &$link, &$nt, $forTemplate = false ) {
 		// check for user namespace
 		if(is_object($nt)){
 			$ns = $nt->getNamespace();
@@ -131,8 +157,8 @@ class KuConverter extends LanguageConverter {
 		}
 
 		$oldlink=$link;
-		parent::findVariantLink($link,$nt);
-		if($this->getPreferredVariant()==$this->mMainLanguageCode)
+		parent::findVariantLink( $link, $nt, $forTemplate );
+		if( $this->getPreferredVariant() == $this->mMainLanguageCode )
 			$link=$oldlink;
 	}
 
@@ -152,7 +178,7 @@ class KuConverter extends LanguageConverter {
 	 */
 	function autoConvert($text, $toVariant=false) {
 		global $wgTitle;
-		if(is_object($wgTitle) && $wgTitle->getNameSpace()==NS_IMAGE){ 
+		if(is_object($wgTitle) && $wgTitle->getNameSpace()==NS_FILE){
 			$imagename = $wgTitle->getNsText();
 			if(preg_match("/^$imagename:/",$text)) return $text;
 		}
@@ -199,6 +225,9 @@ class KuConverter extends LanguageConverter {
 	}
 }
 
+/**
+ * @ingroup Language
+ */
 class LanguageKu extends LanguageKu_ku {
 
 	function __construct() {
@@ -215,26 +244,4 @@ class LanguageKu extends LanguageKu_ku {
 		$this->mConverter = new KuConverter( $this, 'ku', $variants, $variantfallbacks );
 		$wgHooks['ArticleSaveComplete'][] = $this->mConverter;
 	}
-
-/*   From Kazakh interface, not needed for the moment
-
-	function convertGrammar( $word, $case ) {
-		$fname="LanguageKu::convertGrammar";
-		wfProfileIn( $fname );
-
-		//always convert to ku-latn before convertGrammar
-		$w1 = $word;
-		$word = $this->mConverter->autoConvert( $word, 'ku-latn' );
-		$w2 = $word;
-		$word = parent::convertGrammar( $word, $case );
-		//restore encoding
-		if( $w1 != $w2 ) {
-			$word = $this->mConverter->translate( $word, 'ku-latn' );
-		}
-		wfProfileOut( $fname );
-		return $word;
-	}
-*/
 }
-
-

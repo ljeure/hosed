@@ -48,7 +48,7 @@ class IP {
 		// IPv6 IPs with two "::" strings are ambiguous and thus invalid
 		return preg_match( '/^' . IP_ADDRESS_STRING . '$/', $ip) && ( substr_count($ip, '::') < 2 );
 	}
-	
+
 	public static function isIPv6( $ip ) {
 		if ( !$ip ) return false;
 		if( is_array( $ip ) ) {
@@ -57,18 +57,18 @@ class IP {
 		// IPv6 IPs with two "::" strings are ambiguous and thus invalid
 		return preg_match( '/^' . RE_IPV6_ADD . '(\/' . RE_IPV6_PREFIX . '|)$/', $ip) && ( substr_count($ip, '::') < 2);
 	}
-	
+
 	public static function isIPv4( $ip ) {
 		if ( !$ip ) return false;
 		return preg_match( '/^' . RE_IP_ADD . '(\/' . RE_IP_PREFIX . '|)$/', $ip);
 	}
-	
+
 	/**
 	 * Given an IP address in dotted-quad notation, returns an IPv6 octet.
 	 * See http://www.answers.com/topic/ipv4-compatible-address
 	 * IPs with the first 92 bits as zeros are reserved from IPv6
 	 * @param $ip quad-dotted IP address.
-	 * @return string 
+	 * @return string
 	 */
 	public static function IPv4toIPv6( $ip ) {
 		if ( !$ip ) return null;
@@ -106,13 +106,13 @@ class IP {
         $r_ip = wfBaseConvert( $r_ip, 16, 10 );
        	return $r_ip;
 	}
-	
+
 	/**
 	 * Given an IPv6 address in octet notation, returns the expanded octet.
 	 * IPv4 IPs will be trimmed, thats it...
 	 * @param $ip octet ipv6 IP address.
-	 * @return string 
-	 */	
+	 * @return string
+	 */
 	public static function sanitizeIP( $ip ) {
 		$ip = trim( $ip );
 		if ( $ip === '' ) return null;
@@ -132,16 +132,16 @@ class IP {
     	$ip = preg_replace( '/(^|:)0+' . RE_IPV6_WORD . '/', '$1$2', $ip );
     	return $ip;
 	}
-	
+
 	/**
 	 * Given an unsigned integer, returns an IPv6 address in octet notation
 	 * @param $ip integer IP address.
-	 * @return string 
+	 * @return string
 	 */
 	public static function toOctet( $ip_int ) {
    		// Convert to padded uppercase hex
    		$ip_hex = wfBaseConvert($ip_int, 10, 16, 32, false);
-   		// Seperate into 8 octets
+   		// Separate into 8 octets
    		$ip_oct = substr( $ip_hex, 0, 4 );
    		for ($n=1; $n < 8; $n++) {
    			$ip_oct .= ':' . substr($ip_hex, 4*$n, 4);
@@ -149,6 +149,41 @@ class IP {
    		// NO leading zeroes
    		$ip_oct = preg_replace( '/(^|:)0+' . RE_IPV6_WORD . '/', '$1$2', $ip_oct );
        	return $ip_oct;
+	}
+	
+	/**
+	 * Given a hexadecimal number, returns to an IPv6 address in octet notation
+	 * @param $ip string hex IP
+	 * @return string
+	 */
+	public static function HextoOctet( $ip_hex ) {
+   		// Convert to padded uppercase hex
+   		$ip_hex = str_pad( strtoupper($ip_hex), 32, '0');
+   		// Separate into 8 octets
+   		$ip_oct = substr( $ip_hex, 0, 4 );
+   		for ($n=1; $n < 8; $n++) {
+   			$ip_oct .= ':' . substr($ip_hex, 4*$n, 4);
+   		}
+   		// NO leading zeroes
+   		$ip_oct = preg_replace( '/(^|:)0+' . RE_IPV6_WORD . '/', '$1$2', $ip_oct );
+       	return $ip_oct;
+	}
+	
+	/**
+	 * Converts a hexadecimal number to an IPv4 address in octet notation
+	 * @param $ip string Hex IP
+	 * @return string
+	 */ 
+	public static function hexToQuad( $ip ) {
+		// Converts a hexadecimal IP to nnn.nnn.nnn.nnn format
+		$dec = wfBaseConvert( $ip, 16, 10 );
+		$parts[3] = $dec % 256;
+		$dec /= 256;
+		$parts[2] = $dec % 256;
+		$dec /= 256;
+		$parts[1] = $dec % 256;
+		$parts[0] = $dec / 256;
+		return implode( '.', array_reverse( $parts ) );
 	}
 
 	/**
@@ -181,9 +216,9 @@ class IP {
 		}
 		return array( $network, $bits );
 	}
-	
+
 	/**
-	 * Given a string range in a number of formats, return the start and end of 
+	 * Given a string range in a number of formats, return the start and end of
 	 * the range in hexadecimal. For IPv6.
 	 *
 	 * Formats are:
@@ -233,7 +268,7 @@ class IP {
 			return array( $start, $end );
 		}
     }
-	
+
 	/**
 	 * Validate an IP address.
 	 * @return boolean True if it is valid.
@@ -310,7 +345,7 @@ class IP {
 	 * Return a zero-padded hexadecimal representation of an IP address.
 	 *
 	 * Hexadecimal addresses are used because they can easily be extended to
-	 * IPv6 support. To separate the ranges, the return value from this 
+	 * IPv6 support. To separate the ranges, the return value from this
 	 * function for an IPv6 address will be prefixed with "v6-", a non-
 	 * hexadecimal string which sorts after the IPv4 addresses.
 	 *
@@ -320,7 +355,7 @@ class IP {
 	public static function toHex( $ip ) {
 		$n = self::toUnsigned( $ip );
 		if ( $n !== false ) {
-			$n = ( self::isIPv6($ip) ) ? "v6-" . wfBaseConvert( $n, 10, 16, 32, false ) : wfBaseConvert( $n, 10, 16, 8, false );
+			$n = self::isIPv6($ip) ? "v6-" . wfBaseConvert( $n, 10, 16, 32, false ) : wfBaseConvert( $n, 10, 16, 8, false );
 		}
 		return $n;
 	}
@@ -396,14 +431,14 @@ class IP {
 	}
 
 	/**
-	 * Given a string range in a number of formats, return the start and end of 
+	 * Given a string range in a number of formats, return the start and end of
 	 * the range in hexadecimal.
 	 *
 	 * Formats are:
 	 *     1.2.3.4/24          CIDR
 	 *     1.2.3.4 - 1.2.3.5   Explicit range
 	 *     1.2.3.4             Single IP
-	 * 
+	 *
 	 *     2001:0db8:85a3::7344/96          			 CIDR
 	 *     2001:0db8:85a3::7344 - 2001:0db8:85a3::7344   Explicit range
 	 *     2001:0db8:85a3::7344             			 Single IP
@@ -426,12 +461,16 @@ class IP {
 		} elseif ( strpos( $range, '-' ) !== false ) {
 			# Explicit range
 			list( $start, $end ) = array_map( 'trim', explode( '-', $range, 2 ) );
-			$start = self::toUnsigned( $start ); $end = self::toUnsigned( $end );
-			if ( $start > $end ) {
-				$start = $end = false;
+			if( self::isIPAddress( $start ) && self::isIPAddress( $end ) ) {
+				$start = self::toUnsigned( $start ); $end = self::toUnsigned( $end );
+				if ( $start > $end ) {
+					$start = $end = false;
+				} else {
+					$start = sprintf( '%08X', $start );
+					$end = sprintf( '%08X', $end );
+				}
 			} else {
-				$start = sprintf( '%08X', $start );
-				$end = sprintf( '%08X', $end );
+				$start = $end = false;
 			}
 		} else {
 			# Single IP
@@ -439,7 +478,7 @@ class IP {
 		}
 		if ( $start === false || $end === false ) {
 			return array( false, false );
-		} else {				
+		} else {
 			return array( $start, $end );
 		}
     }
@@ -492,5 +531,3 @@ class IP {
 		return null;  // give up
     }
 }
-
-

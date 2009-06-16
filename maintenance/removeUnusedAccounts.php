@@ -1,15 +1,11 @@
 <?php
-
 /**
  * Remove unused user accounts from the database
  * An unused account is one which has made no edits
  *
- * @addtogroup Maintenance
+ * @file
+ * @ingroup Maintenance
  * @author Rob Church <robchur@gmail.com>
- */
-
-/**
- * @todo Don't delete sysops or bureaucrats
  */
 
 $options = array( 'help', 'delete' );
@@ -27,10 +23,29 @@ if( isset( $options['help'] ) ) {
 echo( "Checking for unused user accounts...\n" );
 $del = array();
 $dbr = wfGetDB( DB_SLAVE );
-$res = $dbr->select( 'user', array( 'user_id', 'user_name' ), '', $fname );
+$res = $dbr->select( 'user', array( 'user_id', 'user_name', 'user_touched' ), '', $fname );
+if( isset( $options['ignore-groups'] ) ) {
+	$excludedGroups = explode( ',', $options['ignore-groups'] );
+} else { $excludedGroups = array(); }
+$touchedSeconds = 0;
+if( isset( $options['ignore-touched'] ) ) {
+	$touchedParamError = 0;
+	if( ctype_digit( $options['ignore-touched'] ) ) {
+		if( $options['ignore-touched'] <= 0 ) {
+			$touchedParamError = 1;
+		}
+	} else { $touchedParamError = 1; }
+	if( $touchedParamError == 1 ) {
+		die( "Please put a valid positive integer on the --ignore-touched parameter.\n" );
+	} else { $touchedSeconds = 86400 * $options['ignore-touched']; }
+}
 while( $row = $dbr->fetchObject( $res ) ) {
-	# Check the account, but ignore it if it's the primary administrator
-	if( $row->user_id > 1 && isInactiveAccount( $row->user_id, true ) ) {
+	# Check the account, but ignore it if it's within a $excludedGroups group or if it's touched within the $touchedSeconds seconds.
+	$instance = User::newFromId( $row->user_id );
+	if( count( array_intersect( $instance->getEffectiveGroups(), $excludedGroups ) ) == 0
+		&& isInactiveAccount( $row->user_id, true )
+		&& wfTimestamp( TS_UNIX, $row->user_touched ) < wfTimestamp( TS_UNIX, time() - $touchedSeconds )
+		) {
 		# Inactive; print out the name and flag it
 		$del[] = $row->user_id;
 		echo( $row->user_name . "\n" );
@@ -53,5 +68,3 @@ if( $count > 0 && isset( $options['delete'] ) ) {
 		echo( "\nRun the script again with --delete to remove them from the database.\n" );
 }
 echo( "\n" );
-
-

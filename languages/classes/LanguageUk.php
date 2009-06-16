@@ -1,11 +1,9 @@
 <?php
-/** Ukrainian (українська мова)
-  *
-  * @package MediaWiki
-  * @subpackage Language
-  */
 
-/* Please, see Language.php for general function comments */
+/** Ukrainian (українська мова)
+ *
+ * @ingroup Language
+ */
 class LanguageUk extends Language {
 	# Convert from the nominative form of a noun to some other case
 	# Invoked with {{grammar:case|word}}
@@ -58,17 +56,23 @@ class LanguageUk extends Language {
 		return $word;
 	}
 
-	function convertPlural( $count, $wordform1, $wordform2, $wordform3, $w4, $w5) {
-		$count = str_replace (' ', '', $count);
+	function convertPlural( $count, $forms ) {
+		if ( !count($forms) ) { return ''; }
+
+		//if no number with word, then use $form[0] for singular and $form[1] for plural or zero
+		if( count($forms) === 2 ) return $count == 1 ? $forms[0] : $forms[1];
+
+		$forms = $this->preConvertPlural( $forms, 3 );
+
 		if ($count > 10 && floor(($count % 100) / 10) == 1) {
-			return $wordform3;
+			return $forms[2];
 		} else {
 			switch ($count % 10) {
-				case 1: return $wordform1;
+				case 1:  return $forms[0];
 				case 2:
 				case 3:
-				case 4: return $wordform2;
-				default: return $wordform3;
+				case 4:  return $forms[1];
+				default: return $forms[2];
 			}
 		}
 	}
@@ -85,4 +89,3 @@ class LanguageUk extends Language {
 		}
 	}
 }
-

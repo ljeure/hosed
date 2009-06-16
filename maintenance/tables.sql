@@ -166,6 +166,9 @@ CREATE TABLE /*$wgDBprefix*/user_newtalk (
   -- If the user is an anonymous user their IP address is stored here
   -- since the user_id of 0 is ambiguous
   user_ip varbinary(40) NOT NULL default '',
+  -- The highest timestamp of revisions of the talk page viewed
+  -- by this user
+  user_last_timestamp binary(14) NOT NULL default '',
   INDEX user_id (user_id),
   INDEX user_ip (user_ip)
 
@@ -384,6 +387,9 @@ CREATE TABLE /*$wgDBprefix*/archive (
   -- Will be NULL for pages deleted prior to 1.11.
   ar_page_id int unsigned,
   
+  -- Original previous revision
+  ar_parent_id int unsigned default NULL,
+  
   KEY name_title_timestamp (ar_namespace,ar_title,ar_timestamp),
   KEY usertext_timestamp (ar_user_text,ar_timestamp)
 
@@ -440,7 +446,7 @@ CREATE TABLE /*$wgDBprefix*/imagelinks (
   
   -- Filename of target image.
   -- This is also the page_title of the file's description page;
-  -- all such pages are in namespace 6 (NS_IMAGE).
+  -- all such pages are in namespace 6 (NS_FILE).
   il_to varchar(255) binary NOT NULL default '',
   
   UNIQUE KEY il_from (il_from,il_to),
@@ -484,6 +490,39 @@ CREATE TABLE /*$wgDBprefix*/categorylinks (
   -- Not really used?
   KEY cl_timestamp (cl_to,cl_timestamp)
 
+) /*$wgDBTableOptions*/;
+
+-- 
+-- Track all existing categories.  Something is a category if 1) it has an en-
+-- try somewhere in categorylinks, or 2) it once did.  Categories might not
+-- have corresponding pages, so they need to be tracked separately.
+--
+CREATE TABLE /*$wgDBprefix*/category (
+  -- Primary key
+  cat_id int unsigned NOT NULL auto_increment,
+
+  -- Name of the category, in the same form as page_title (with underscores).
+  -- If there is a category page corresponding to this category, by definition,
+  -- it has this name (in the Category namespace).
+  cat_title varchar(255) binary NOT NULL,
+
+  -- The numbers of member pages (including categories and media), subcatego-
+  -- ries, and Image: namespace members, respectively.  These are signed to
+  -- make underflow more obvious.  We make the first number include the second
+  -- two for better sorting: subtracting for display is easy, adding for order-
+  -- ing is not.
+  cat_pages int signed NOT NULL default 0,
+  cat_subcats int signed NOT NULL default 0,
+  cat_files int signed NOT NULL default 0,
+
+  -- Reserved for future use
+  cat_hidden tinyint unsigned NOT NULL default 0,
+  
+  PRIMARY KEY (cat_id),
+  UNIQUE KEY (cat_title),
+
+  -- For Special:Mostlinkedcategories
+  KEY (cat_pages)
 ) /*$wgDBTableOptions*/;
 
 --
@@ -557,6 +596,9 @@ CREATE TABLE /*$wgDBprefix*/site_stats (
 
   -- Number of users, theoretically equal to SELECT COUNT(*) FROM user;
   ss_users bigint default '-1',
+  
+  -- Number of users that still edit
+  ss_active_users bigint default '-1',
 
   -- Deprecated, no longer updated as of 1.5
   ss_admins int default '-1',
@@ -577,7 +619,7 @@ CREATE TABLE /*$wgDBprefix*/site_stats (
 --
 CREATE TABLE /*$wgDBprefix*/hitcounter (
   hc_id int unsigned NOT NULL
-) TYPE=HEAP MAX_ROWS=25000;
+) ENGINE=HEAP MAX_ROWS=25000;
 
 
 --
@@ -596,6 +638,9 @@ CREATE TABLE /*$wgDBprefix*/ipblocks (
   
   -- User ID who made the block.
   ipb_by int unsigned NOT NULL default '0',
+  
+  -- User name of blocker
+  ipb_by_text varchar(255) binary NOT NULL default '',
   
   -- Text comment made by blocker.
   ipb_reason tinyblob NOT NULL,
@@ -633,6 +678,9 @@ CREATE TABLE /*$wgDBprefix*/ipblocks (
   -- Block prevents user from accessing Special:Emailuser
   ipb_block_email bool NOT NULL default 0,
   
+  -- Block allows user to edit their own talk page
+  ipb_allow_usertalk bool NOT NULL default 0,
+  
   PRIMARY KEY ipb_id (ipb_id),
 
   -- Unique index to support "user already blocked" messages
@@ -653,7 +701,7 @@ CREATE TABLE /*$wgDBprefix*/ipblocks (
 CREATE TABLE /*$wgDBprefix*/image (
   -- Filename.
   -- This is also the title of the associated description page,
-  -- which will be in namespace 6 (NS_IMAGE).
+  -- which will be in namespace 6 (NS_FILE).
   img_name varchar(255) binary NOT NULL default '',
   
   -- File size in bytes.
@@ -703,8 +751,7 @@ CREATE TABLE /*$wgDBprefix*/image (
   INDEX img_size (img_size),
   -- Used by Special:Newimages and Special:Imagelist
   INDEX img_timestamp (img_timestamp),
-
-  -- For future use
+  -- Used in API and duplicate search
   INDEX img_sha1 (img_sha1)
 
 
@@ -799,7 +846,7 @@ CREATE TABLE /*$wgDBprefix*/filearchive (
   INDEX (fa_name, fa_timestamp),             -- pick out by image name
   INDEX (fa_storage_group, fa_storage_key),  -- pick out dupe files
   INDEX (fa_deleted_timestamp),              -- sort by deletion time
-  INDEX (fa_deleted_user)                    -- sort by deleter
+  INDEX fa_user_timestamp (fa_user_text,fa_timestamp) -- sort by uploader
 
 ) /*$wgDBTableOptions*/;
 
@@ -863,7 +910,7 @@ CREATE TABLE /*$wgDBprefix*/recentchanges (
   rc_old_len int,
   rc_new_len int,
 
-  -- Visibility of deleted revisions, bitfield
+  -- Visibility of recent changes items, bitfield
   rc_deleted tinyint unsigned NOT NULL default '0',
 
   -- Value corresonding to log_id, specific log entries
@@ -953,7 +1000,7 @@ CREATE TABLE /*$wgDBprefix*/searchindex (
   FULLTEXT si_title (si_title),
   FULLTEXT si_text (si_text)
 
-) TYPE=MyISAM;
+) ENGINE=MyISAM;
 
 --
 -- Recognized interwiki link prefixes
@@ -1003,7 +1050,7 @@ CREATE TABLE /*$wgDBprefix*/objectcache (
   keyname varbinary(255) NOT NULL default '',
   value mediumblob,
   exptime datetime,
-  UNIQUE KEY (keyname),
+  PRIMARY KEY (keyname),
   KEY (exptime)
 
 ) /*$wgDBTableOptions*/;
@@ -1019,6 +1066,9 @@ CREATE TABLE /*$wgDBprefix*/transcache (
 ) /*$wgDBTableOptions*/;
 
 CREATE TABLE /*$wgDBprefix*/logging (
+  -- Log ID, for referring to this specific log entry, probably for deletion and such.
+  log_id int unsigned NOT NULL auto_increment,
+
   -- Symbolic keys for the general log type and the action type
   -- within the log. The output format will be controlled by the
   -- action field, but only the type controls categorization.
@@ -1042,9 +1092,6 @@ CREATE TABLE /*$wgDBprefix*/logging (
   -- LF separated list of miscellaneous parameters
   log_params blob NOT NULL,
 
-  -- Log ID, for referring to this specific log entry, probably for deletion and such.
-  log_id int unsigned NOT NULL auto_increment,
-
   -- rev_deleted for logs
   log_deleted tinyint unsigned NOT NULL default '0',
 
@@ -1058,7 +1105,7 @@ CREATE TABLE /*$wgDBprefix*/logging (
 
 CREATE TABLE /*$wgDBprefix*/trackbacks (
   tb_id int auto_increment,
-  tb_page int REFERENCES page(page_id) ON DELETE CASCADE,
+  tb_page int REFERENCES /*$wgDBprefix*/page(page_id) ON DELETE CASCADE,
   tb_title varchar(255) NOT NULL,
   tb_url blob NOT NULL,
   tb_ex text,
@@ -1166,6 +1213,34 @@ CREATE TABLE /*$wgDBprefix*/page_restrictions (
   KEY pr_typelevel (pr_type,pr_level),
   KEY pr_level (pr_level),
   KEY pr_cascade (pr_cascade)
+) /*$wgDBTableOptions*/;
+
+-- Protected titles - nonexistent pages that have been protected
+CREATE TABLE /*$wgDBprefix*/protected_titles (
+  pt_namespace int NOT NULL,
+  pt_title varchar(255) binary NOT NULL,
+  pt_user int unsigned NOT NULL,
+  pt_reason tinyblob,
+  pt_timestamp binary(14) NOT NULL,
+  pt_expiry varbinary(14) NOT NULL default '',
+  pt_create_perm varbinary(60) NOT NULL,
+  PRIMARY KEY (pt_namespace,pt_title),
+  KEY pt_timestamp (pt_timestamp)
+) /*$wgDBTableOptions*/;
+
+-- Name/value pairs indexed by page_id
+CREATE TABLE /*$wgDBprefix*/page_props (
+  pp_page int NOT NULL,
+  pp_propname varbinary(60) NOT NULL,
+  pp_value blob NOT NULL,
+
+  PRIMARY KEY (pp_page,pp_propname)
+) /*$wgDBTableOptions*/;
+
+-- A table to log updates, one text key row per update.
+CREATE TABLE /*$wgDBprefix*/updatelog (
+  ul_key varchar(255) NOT NULL,
+  PRIMARY KEY (ul_key)
 ) /*$wgDBTableOptions*/;
 
 -- vim: sw=2 sts=2 et

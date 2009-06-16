@@ -45,12 +45,12 @@
 * USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 * DAMAGE.
 *
-* @addtogroup  API
+* @ingroup     API
 * @author      Michal Migurski <mike-json@teczno.com>
 * @author      Matt Knapp <mdknapp[at]gmail[dot]com>
 * @author      Brett Stimmerman <brettstimmerman[at]gmail[dot]com>
 * @copyright   2005 Michal Migurski
-* @version     CVS: $Id: JSON.php,v 1.30 2006/03/08 16:10:20 migurski Exp $
+* @version     CVS: $Id: ApiFormatJson_json.php 45682 2009-01-12 19:06:33Z raymond $
 * @license     http://www.opensource.org/licenses/bsd-license.php
 * @see         http://pear.php.net/pepr/pepr-proposal-show.php?id=198
 */
@@ -111,7 +111,7 @@ define('SERVICES_JSON_SUPPRESS_ERRORS', 32);
  * $value = $json->decode($input);
  * </code>
  *
- * @addtogroup API
+ * @ingroup API
  */
 class Services_JSON
 {
@@ -168,6 +168,17 @@ class Services_JSON
                 return chr(0xC0 | (($bytes >> 6) & 0x1F))
                      . chr(0x80 | ($bytes & 0x3F));
 
+            case (0xFC00 & $bytes) == 0xD800 && strlen($utf16) >= 4 && (0xFC & ord($utf16{2})) == 0xDC:
+                // return a 4-byte UTF-8 character
+                $char = ((($bytes & 0x03FF) << 10)
+                       | ((ord($utf16{2}) & 0x03) << 8)
+                       | ord($utf16{3}));
+                $char += 0x10000;
+                return chr(0xF0 | (($char >> 18) & 0x07))
+                     . chr(0x80 | (($char >> 12) & 0x3F))
+                     . chr(0x80 | (($char >> 6) & 0x3F))
+                     . chr(0x80 | ($char & 0x3F));
+
             case (0xFFFF & $bytes) == $bytes:
                 // return a 3-byte UTF-8 character
                 // see: http://www.cl.cam.ac.uk/~mgk25/unicode.html#utf-8
@@ -218,6 +229,20 @@ class Services_JSON
                          | (0x0F & (ord($utf8{1}) >> 2)))
                      . chr((0xC0 & (ord($utf8{1}) << 6))
                          | (0x7F & ord($utf8{2})));
+
+            case 4:
+                // return a UTF-16 surrogate pair from a 4-byte UTF-8 char
+                if(ord($utf8{0}) > 0xF4) return ''; # invalid
+                $char = ((0x1C0000 & (ord($utf8{0}) << 18))
+                       | (0x03F000 & (ord($utf8{1}) << 12))
+                       | (0x000FC0 & (ord($utf8{2}) << 6))
+                       | (0x00003F & ord($utf8{3})));
+                if($char > 0x10FFFF) return ''; # invalid
+                $char -= 0x10000;
+                return chr(0xD8 | (($char >> 18) & 0x03))
+                     . chr(($char >> 10) & 0xFF)
+                     . chr(0xDC | (($char >> 8) & 0x03))
+                     . chr($char & 0xFF);
         }
 
         // ignoring UTF-32 for now, sorry
@@ -257,7 +282,7 @@ class Services_JSON
     */
     function encode2($var)
     {
-        if ($this->pretty) { 
+        if ($this->pretty) {
             $close = "\n" . str_repeat("\t", $this->indent);
             $open = $close . "\t";
             $mid = ',' . $open;
@@ -346,40 +371,19 @@ class Services_JSON
                         case (($ord_var_c & 0xF8) == 0xF0):
                             // characters U-00010000 - U-001FFFFF, mask 11110XXX
                             // see http://www.cl.cam.ac.uk/~mgk25/unicode.html#utf-8
+                            // These will always return a surrogate pair
                             $char = pack('C*', $ord_var_c,
                                          ord($var{$c + 1}),
                                          ord($var{$c + 2}),
                                          ord($var{$c + 3}));
                             $c += 3;
                             $utf16 = $this->utf82utf16($char);
-                            $ascii .= sprintf('\u%04s', bin2hex($utf16));
-                            break;
-
-                        case (($ord_var_c & 0xFC) == 0xF8):
-                            // characters U-00200000 - U-03FFFFFF, mask 111110XX
-                            // see http://www.cl.cam.ac.uk/~mgk25/unicode.html#utf-8
-                            $char = pack('C*', $ord_var_c,
-                                         ord($var{$c + 1}),
-                                         ord($var{$c + 2}),
-                                         ord($var{$c + 3}),
-                                         ord($var{$c + 4}));
-                            $c += 4;
-                            $utf16 = $this->utf82utf16($char);
-                            $ascii .= sprintf('\u%04s', bin2hex($utf16));
-                            break;
-
-                        case (($ord_var_c & 0xFE) == 0xFC):
-                            // characters U-04000000 - U-7FFFFFFF, mask 1111110X
-                            // see http://www.cl.cam.ac.uk/~mgk25/unicode.html#utf-8
-                            $char = pack('C*', $ord_var_c,
-                                         ord($var{$c + 1}),
-                                         ord($var{$c + 2}),
-                                         ord($var{$c + 3}),
-                                         ord($var{$c + 4}),
-                                         ord($var{$c + 5}));
-                            $c += 5;
-                            $utf16 = $this->utf82utf16($char);
-                            $ascii .= sprintf('\u%04s', bin2hex($utf16));
+                            if($utf16 == '') {
+                                $ascii .= '\ufffd';
+                            } else {
+                                $utf16 = str_split($utf16, 2);
+                                $ascii .= sprintf('\u%04s\u%04s', bin2hex($utf16[0]), bin2hex($utf16[1]));
+                            }
                             break;
                     }
                 }
@@ -426,7 +430,7 @@ class Services_JSON
                 $this->indent++;
                 $elements = array_map(array($this, 'encode2'), $var);
                 $this->indent--;
-                
+
                 foreach($elements as $element) {
                     if(Services_JSON::isError($element)) {
                         return $element;
@@ -591,6 +595,16 @@ class Services_JSON
                                 }
                                 break;
 
+                            case preg_match('/\\\uD[89AB][0-9A-F]{2}\\\uD[C-F][0-9A-F]{2}/i', substr($chrs, $c, 12)):
+                                // escaped unicode surrogate pair
+                                $utf16 = chr(hexdec(substr($chrs, ($c + 2), 2)))
+                                       . chr(hexdec(substr($chrs, ($c + 4), 2)))
+                                       . chr(hexdec(substr($chrs, ($c + 8), 2)))
+                                       . chr(hexdec(substr($chrs, ($c + 10), 2)));
+                                $utf8 .= $this->utf162utf8($utf16);
+                                $c += 11;
+                                break;
+
                             case preg_match('/\\\u[0-9A-F]{4}/i', substr($chrs, $c, 6)):
                                 // single, escaped unicode character
                                 $utf16 = chr(hexdec(substr($chrs, ($c + 2), 2)))
@@ -703,7 +717,7 @@ class Services_JSON
                                 // element in an associative array,
                                 // for now
                                 $parts = array();
-                                
+
                                 if (preg_match('/^\s*(["\'].*[^\\\]["\'])\s*:\s*(\S.*),?$/Uis', $slice, $parts)) {
                                     // "name":value pair
                                     $key = $this->decode($parts[1]);
@@ -812,10 +826,13 @@ class Services_JSON
     }
 }
 
+
+// Hide the PEAR_Error variant from Doxygen
+/// @cond
 if (class_exists('PEAR_Error')) {
 
     /**
-     * @addtogroup API
+     * @ingroup API
      */
     class Services_JSON_Error extends PEAR_Error
     {
@@ -827,10 +844,11 @@ if (class_exists('PEAR_Error')) {
     }
 
 } else {
+/// @endcond
 
     /**
      * @todo Ultimately, this class shall be descended from PEAR_Error
-     * @addtogroup API
+     * @ingroup API
      */
     class Services_JSON_Error
     {
@@ -840,7 +858,4 @@ if (class_exists('PEAR_Error')) {
 
         }
     }
-
 }
-    
-

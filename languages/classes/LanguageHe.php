@@ -1,12 +1,12 @@
 <?php
+
 /**
  * Hebrew (עברית)
  *
- * @addtogroup Language
+ * @ingroup Language
  *
  * @author Rotem Liss
  */
-
 class LanguageHe extends Language {
 	/**
 	 * Convert grammar forms of words.
@@ -57,15 +57,16 @@ class LanguageHe extends Language {
 	 *
 	 * @return string of the suited form of word
 	 */
-	public function convertPlural( $count, $w1, $w2, $w3, $w4, $w5) {
+	function convertPlural( $count, $forms ) {
+		if ( !count($forms) ) { return ''; }
+		$forms = $this->preConvertPlural( $forms, 3 );
+
 		if ( $count == '1' ) {
-			return $w1;
-		} elseif ( $count == '2' && $w3 ) {
-			return $w3;
+			return $forms[0];
+		} elseif ( $count == '2' && isset($forms[2]) ) {
+			return $forms[2];
 		} else {
-			return $w2;
+			return $forms[1];
 		}
 	}
 }
-
-

@@ -1,11 +1,10 @@
 <?php
-/** Armenian (Հայերեն)
-  *
-  * @addtogroup Language
-  * @author Ruben Vardanyan (Me@RubenVardanyan.com)
-  */
 
-/* Please, see Language.php for general function comments */
+/** Armenian (Հայերեն)
+ *
+ * @ingroup Language
+ * @author Ruben Vardanyan (Me@RubenVardanyan.com)
+ */
 class LanguageHy extends Language {
 	# Convert from the nominative form of a noun to some other case
 	# Invoked with {{grammar:case|word}}
@@ -49,13 +48,11 @@ class LanguageHy extends Language {
 		return $word;
 	}
 
-	function convertPlural( $count, $wordform1, $wordform2) {
-		$count = str_replace (' ', '', $count);
-		if (abs($count) <= 1) {
-			return $wordform1;
-		} else {
-			return $wordform2;
-		}
+	function convertPlural( $count, $forms ) {
+		if ( !count($forms) ) { return ''; }
+		$forms = $this->preConvertPlural( $forms, 2 );
+
+		return (abs($count) <= 1) ? $forms[0] : $forms[1];
 	}
 
 	/*
@@ -70,4 +67,3 @@ class LanguageHy extends Language {
 		}
 	}
 }
-

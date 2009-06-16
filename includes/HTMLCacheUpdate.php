@@ -5,21 +5,23 @@
  * Small numbers of links will be done immediately, large numbers are pushed onto
  * the job queue.
  *
- * This class is designed to work efficiently with small numbers of links, and 
+ * This class is designed to work efficiently with small numbers of links, and
  * to work reasonably well with up to ~10^5 links. Above ~10^6 links, the memory
  * and time requirements of loading all backlinked IDs in doUpdate() might become
  * prohibitive. The requirements measured at Wikimedia are approximately:
- * 
+ *
  *   memory: 48 bytes per row
  *   time: 16us per row for the query plus processing
  *
  * The reason this query is done is to support partitioning of the job
- * by backlinked ID. The memory issue could be allieviated by doing this query in 
+ * by backlinked ID. The memory issue could be allieviated by doing this query in
  * batches, but of course LIMIT with an offset is inefficient on the DB side.
  *
- * The class is nevertheless a vast improvement on the previous method of using 
+ * The class is nevertheless a vast improvement on the previous method of using
  * Image::getLinksTo() and Title::touchArray(), which uses about 2KB of memory per
  * link.
+ *
+ * @ingroup Cache
  */
 class HTMLCacheUpdate
 {
@@ -35,30 +37,30 @@ class HTMLCacheUpdate
 		$this->mRowsPerQuery = $wgUpdateRowsPerQuery;
 	}
 
-	function doUpdate() {
+	public function doUpdate() {
 		# Fetch the IDs
 		$cond = $this->getToCondition();
 		$dbr = wfGetDB( DB_SLAVE );
 		$res = $dbr->select( $this->mTable, $this->getFromField(), $cond, __METHOD__ );
-		$resWrap = new ResultWrapper( $dbr, $res );
+
 		if ( $dbr->numRows( $res ) != 0 ) {
 			if ( $dbr->numRows( $res ) > $this->mRowsPerJob ) {
-				$this->insertJobs( $resWrap );
+				$this->insertJobs( $res );
 			} else {
-				$this->invalidateIDs( $resWrap );
+				$this->invalidateIDs( $res );
 			}
 		}
-		$dbr->freeResult( $res );
+		wfRunHooks( 'HTMLCacheUpdate::doUpdate', array($this->mTitle) );
 	}
 
-	function insertJobs( ResultWrapper $res ) {
+	protected function insertJobs( ResultWrapper $res ) {
 		$numRows = $res->numRows();
 		$numBatches = ceil( $numRows / $this->mRowsPerJob );
 		$realBatchSize = $numRows / $numBatches;
 		$start = false;
 		$jobs = array();
 		do {
-			for ( $i = 0; $i < $realBatchSize - 1; $i++ ) {
+			for ( $i = 0; $i <= $realBatchSize - 1; $i++ ) {
 				$row = $res->fetchRow();
 				if ( $row ) {
 					$id = $row[0];
@@ -67,7 +69,7 @@ class HTMLCacheUpdate
 					break;
 				}
 			}
-			
+
 			$params = array(
 				'table' => $this->mTable,
 				'start' => $start,
@@ -81,16 +83,13 @@ class HTMLCacheUpdate
 		Job::batchInsert( $jobs );
 	}
 
-	function getPrefix() {
+	protected function getPrefix() {
 		static $prefixes = array(
 			'pagelinks' => 'pl',
 			'imagelinks' => 'il',
 			'categorylinks' => 'cl',
 			'templatelinks' => 'tl',
-			
-			# Not needed
-			# 'externallinks' => 'el',
-			# 'langlinks' => 'll'
+			'redirect' => 'rd',
 		);
 
 		if ( is_null( $this->mPrefix ) ) {
@@ -101,22 +100,20 @@ class HTMLCacheUpdate
 		}
 		return $this->mPrefix;
 	}
-	
-	function getFromField() {
+
+	public function getFromField() {
 		return $this->getPrefix() . '_from';
 	}
 
-	function getToCondition() {
+	public function getToCondition() {
+		$prefix = $this->getPrefix();
 		switch ( $this->mTable ) {
 			case 'pagelinks':
-				return array( 
-					'pl_namespace' => $this->mTitle->getNamespace(),
-					'pl_title' => $this->mTitle->getDBkey()
-				);
 			case 'templatelinks':
+			case 'redirect':
 				return array(
-					'tl_namespace' => $this->mTitle->getNamespace(),
-					'tl_title' => $this->mTitle->getDBkey()
+					"{$prefix}_namespace" => $this->mTitle->getNamespace(),
+					"{$prefix}_title" => $this->mTitle->getDBkey()
 				);
 			case 'imagelinks':
 				return array( 'il_to' => $this->mTitle->getDBkey() );
@@ -129,7 +126,7 @@ class HTMLCacheUpdate
 	/**
 	 * Invalidate a set of IDs, right now
 	 */
-	function invalidateIDs( ResultWrapper $res ) {
+	public function invalidateIDs( ResultWrapper $res ) {
 		global $wgUseFileCache, $wgUseSquid;
 
 		if ( $res->numRows() == 0 ) {
@@ -139,7 +136,7 @@ class HTMLCacheUpdate
 		$dbw = wfGetDB( DB_MASTER );
 		$timestamp = $dbw->timestamp();
 		$done = false;
-		
+
 		while ( !$done ) {
 			# Get all IDs in this query into an array
 			$ids = array();
@@ -156,10 +153,10 @@ class HTMLCacheUpdate
 			if ( !count( $ids ) ) {
 				break;
 			}
-			
+
 			# Update page_touched
-			$dbw->update( 'page', 
-				array( 'page_touched' => $timestamp ), 
+			$dbw->update( 'page',
+				array( 'page_touched' => $timestamp ),
 				array( 'page_id IN (' . $dbw->makeList( $ids ) . ')' ),
 				__METHOD__
 			);
@@ -175,8 +172,7 @@ class HTMLCacheUpdate
 				# Update file cache
 				if  ( $wgUseFileCache ) {
 					foreach ( $titles as $title ) {
-						$cm = new HTMLFileCache($title);
-						@unlink($cm->fileCacheName());
+						HTMLFileCache::clearFileCache( $title );
 					}
 				}
 			}
@@ -185,7 +181,10 @@ class HTMLCacheUpdate
 }
 
 /**
- * @todo document (e.g. one-sentence top-level class description).
+ * Job wrapper for HTMLCacheUpdate. Gets run whenever a related
+ * job gets called from the queue.
+ * 
+ * @ingroup JobQueue
  */
 class HTMLCacheUpdateJob extends Job {
 	var $table, $start, $end;
@@ -203,7 +202,7 @@ class HTMLCacheUpdateJob extends Job {
 		$this->end = $params['end'];
 	}
 
-	function run() {
+	public function run() {
 		$update = new HTMLCacheUpdate( $this->title, $this->table );
 
 		$fromField = $update->getFromField();
@@ -217,10 +216,8 @@ class HTMLCacheUpdateJob extends Job {
 
 		$dbr = wfGetDB( DB_SLAVE );
 		$res = $dbr->select( $this->table, $fromField, $conds, __METHOD__ );
-		$update->invalidateIDs( new ResultWrapper( $dbr, $res ) );
-		$dbr->freeResult( $res );
+		$update->invalidateIDs( $res );
 
 		return true;
 	}
 }
-

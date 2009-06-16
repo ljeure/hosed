@@ -1,12 +1,11 @@
 <?php
+
 /** Russian (русский язык)
   *
   * You can contact Alexander Sigachov (alexander.sigachov at Googgle Mail)
   *
-  * @addtogroup Language
+  * @ingroup Language
   */
-
-/* Please, see Language.php for general function comments */
 class LanguageRu extends Language {
 	# Convert from the nominative form of a noun to some other case
 	# Invoked with {{grammar:case|word}}
@@ -56,31 +55,52 @@ class LanguageRu extends Language {
 		return $word;
 	}
 
-	function convertPlural( $count, $wordform1, $wordform2, $wordform3, $w4, $w5) {
-		$count = str_replace (' ', '', $count);
+	/**
+	 * Plural form transformations
+	 *
+	 * $forms[0] - singular form (for 1, 21, 31, 41...)
+	 * $forms[1] - paucal form (for 2, 3, 4, 22, 23, 24, 32, 33, 34...)
+	 * $forms[2] - plural form (for 0, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25, 26...)
+	 *
+	 * Examples:
+	 *   message with number
+	 *     "Сделано $1 {{PLURAL:$1|изменение|изменения|изменений}}"
+	 *   message without number
+	 *     "Действие не может быть выполнено по {{PLURAL:$1|следующей причине|следующим причинам}}:"
+	 *
+	 */
+
+	function convertPlural( $count, $forms ) {
+		if ( !count($forms) ) { return ''; }
+
+		//if no number with word, then use $form[0] for singular and $form[1] for plural or zero
+		if( count($forms) === 2 ) return $count == 1 ? $forms[0] : $forms[1];
+
+		$forms = $this->preConvertPlural( $forms, 3 );
+
 		if ($count > 10 && floor(($count % 100) / 10) == 1) {
-			return $wordform3;
+			return $forms[2];
 		} else {
 			switch ($count % 10) {
-				case 1: return $wordform1;
+				case 1:  return $forms[0];
 				case 2:
 				case 3:
-				case 4: return $wordform2;
-				default: return $wordform3;
+				case 4:  return $forms[1];
+				default: return $forms[2];
 			}
 		}
 	}
 
 	/*
-	 * Russian numeric format is "12 345,67" but "1234,56"
+	 * Four-digit number should be without group commas (spaces)
+	 * See manual of style at http://ru.wikipedia.org/wiki/Википедия:Оформление_статей
+	 * So "1 234 567", "12 345" but "1234"
 	 */
-
 	function commafy($_) {
-		if (!preg_match('/^\d{1,4}$/',$_)) {
-			return strrev((string)preg_replace('/(\d{3})(?=\d)(?!\d*\.)/','$1,',strrev($_)));
-		} else {
+		if (preg_match('/^-?\d{1,4}(\.\d*)?$/',$_)) {
 			return $_;
+		} else {
+			return strrev((string)preg_replace('/(\d{3})(?=\d)(?!\d*\.)/','$1,',strrev($_)));
 		}
 	}
 }
-

@@ -1,7 +1,10 @@
 <?php
 /** Shona (chiShona)
  *
- * @addtogroup Language
+ * @ingroup Language
+ * @file
+ *
+ * @author Hakka
  */
 
 $messages = array(
@@ -60,19 +63,20 @@ $messages = array(
 'otherlanguages'   => 'Mimwe Mitauro',
 
 # All link text and link target definitions of links into project namespace that get used by other message strings, with the exception of user group pages (see grouppage) and the disambiguation template definition (see disambiguations).
-'currentevents'     => 'Zvirikuitika',
-'currentevents-url' => 'Zvirikuitika',
-'disclaimers'       => 'Matandanyadzi',
-'edithelp'          => 'Mashandurirwo',
-'mainpage'          => 'Peji Rekutanga',
-'portal'            => 'Mukova wegutse',
-'sitesupport'       => 'Zvipo',
+'currentevents'        => 'Zvirikuitika',
+'currentevents-url'    => 'Project:Zvirikuitika',
+'disclaimers'          => 'Matandanyadzi',
+'edithelp'             => 'Mashandurirwo',
+'mainpage'             => 'Peji Rekutanga',
+'mainpage-description' => 'Peji Rekutanga',
+'portal'               => 'Mukova wegutse',
 
-'newmessageslink' => 'mashoko matsva',
-'editsection'     => 'chinja',
-'editold'         => 'chinja',
+'newmessageslink'         => 'mashoko matsva',
+'youhavenewmessagesmulti' => 'Une mashoko matsva pa$1',
+'editsection'             => 'chinja',
+'editold'                 => 'chinja',
 
-# Short words for each namespace, by default used in the 'article' tab in monobook
+# Short words for each namespace, by default used in the namespace tab in monobook
 'nstab-main' => 'Gani',
 
 # General errors
@@ -96,7 +100,7 @@ Akaunzi yako yagadzirwa. Usakanganwe kuchinga mapreferences ako eWikipedia.',
 'username'           => 'Zita:',
 
 # Edit pages
-'summary'     => 'Muchidimbu',
+'summary'     => 'Muchidimbu:',
 'minoredit'   => 'Uku kushandurwa kudiki',
 'watchthis'   => 'Ringa peji rino',
 'savearticle' => 'Kotsa peji',
@@ -124,9 +128,10 @@ Akaunzi yako yagadzirwa. Usakanganwe kuchinga mapreferences ako eWikipedia.',
 'uploadnologin'   => 'Hauna kugamuchirwa',
 'watchthisupload' => 'Ringa peji rino',
 
+# Random page
+'randompage' => 'Peji nhemwa',
+
 # Miscellaneous special pages
-'randompage'   => 'Peji nhemwa',
-'specialpages' => 'Mapeji akakosha',
 'move'         => 'Chichinura',
 'movethispage' => 'Chichinura kupeji iri',
 
@@ -135,6 +140,9 @@ Akaunzi yako yagadzirwa. Usakanganwe kuchinga mapreferences ako eWikipedia.',
 'mywatchlist'   => 'Zvandakarinda',
 'watch'         => 'Rinda',
 'watchthispage' => 'Ringa peji rino',
+
+# Protect
+'prot_1movedto2' => '[[$1]] rachichinurwa ku [[$2]]',
 
 # Restrictions (nouns)
 'restriction-edit' => 'Chinja',
@@ -153,11 +161,11 @@ Akaunzi yako yagadzirwa. Usakanganwe kuchinga mapreferences ako eWikipedia.',
 'whatlinkshere' => 'Zvakakochekera pano',
 
 # Move page
-'movepage'    => 'Chichinura peji',
-'movepagebtn' => 'Chichinura peji',
-'movedto'     => 'rachichinurwa ku',
-'1movedto2'   => '[[$1]] rachichinurwa ku [[$2]]',
-'movereason'  => 'Chikonzero',
+'move-page-legend' => 'Chichinura peji',
+'movepagebtn'      => 'Chichinura peji',
+'movedto'          => 'rachichinurwa ku',
+'1movedto2'        => '[[$1]] rachichinurwa ku [[$2]]',
+'movereason'       => 'Chikonzero',
 
 # Namespace 8 related
 'allmessages' => 'Mashoko esystem',
@@ -171,11 +179,10 @@ Akaunzi yako yagadzirwa. Usakanganwe kuchinga mapreferences ako eWikipedia.',
 # Trackbacks
 'trackbackremove' => ' ([$1 Delete])',
 
-'youhavenewmessagesmulti' => 'Une mashoko matsva pa$1',
-
 # Table pager
 'table_pager_limit_submit' => 'Enda',
 
+# Special:SpecialPages
+'specialpages' => 'Mapeji akakosha',
+
 );
-
-

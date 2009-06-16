@@ -29,7 +29,7 @@ if (!defined('MEDIAWIKI')) {
 }
 
 /**
- * @addtogroup API
+ * @ingroup API
  */
 class ApiFormatPhp extends ApiFormatBase {
 
@@ -45,12 +45,11 @@ class ApiFormatPhp extends ApiFormatBase {
 		$this->printText(serialize($this->getResultData()));
 	}
 
-	protected function getDescription() {
+	public function getDescription() {
 		return 'Output data in serialized PHP format' . parent :: getDescription();
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiFormatPhp.php 23531 2007-06-29 01:19:14Z simetrical $';
+		return __CLASS__ . ': $Id: ApiFormatPhp.php 35098 2008-05-20 17:13:28Z ialex $';
 	}
 }
-

@@ -1,8 +1,9 @@
 <?php
-/** Yi (ꆇꉙ)
-  *
-  * @addtogroup Language
-  */
+/** Sichuan Yi (ꆇꉙ)
+ *
+ * @ingroup Language
+ * @file
+ *
+ */
 
 $fallback = 'zh-cn';
-

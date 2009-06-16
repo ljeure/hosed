@@ -28,10 +28,6 @@
  * accounts authenticate externally, or use it only as a fallback; also
  * you can transparently create internal wiki accounts the first time
  * someone logs in who can be authenticated externally.
- *
- * This interface is new, and might change a bit before 1.4.0 final is
- * done...
- *
  */
 class AuthPlugin {
 	/**
@@ -42,9 +38,8 @@ class AuthPlugin {
 	 *
 	 * @param $username String: username.
 	 * @return bool
-	 * @public
 	 */
-	function userExists( $username ) {
+	public function userExists( $username ) {
 		# Override this!
 		return false;
 	}
@@ -58,9 +53,8 @@ class AuthPlugin {
 	 * @param $username String: username.
 	 * @param $password String: user password.
 	 * @return bool
-	 * @public
 	 */
-	function authenticate( $username, $password ) {
+	public function authenticate( $username, $password ) {
 		# Override this!
 		return false;
 	}
@@ -69,9 +63,8 @@ class AuthPlugin {
 	 * Modify options in the login template.
 	 *
 	 * @param $template UserLoginTemplate object.
-	 * @public
 	 */
-	function modifyUITemplate( &$template ) {
+	public function modifyUITemplate( &$template ) {
 		# Override this!
 		$template->set( 'usedomain', false );
 	}
@@ -80,9 +73,8 @@ class AuthPlugin {
 	 * Set the domain this plugin is supposed to use when authenticating.
 	 *
 	 * @param $domain String: authentication domain.
-	 * @public
 	 */
-	function setDomain( $domain ) {
+	public function setDomain( $domain ) {
 		$this->domain = $domain;
 	}
 
@@ -91,9 +83,8 @@ class AuthPlugin {
 	 *
 	 * @param $domain String: authentication domain.
 	 * @return bool
-	 * @public
 	 */
-	function validDomain( $domain ) {
+	public function validDomain( $domain ) {
 		# Override this!
 		return true;
 	}
@@ -107,9 +98,8 @@ class AuthPlugin {
 	 * forget the & on your function declaration.
 	 *
 	 * @param User $user
-	 * @public
 	 */
-	function updateUser( &$user ) {
+	public function updateUser( &$user ) {
 		# Override this and do something
 		return true;
 	}
@@ -127,9 +117,8 @@ class AuthPlugin {
 	 * This is just a question, and shouldn't perform any actions.
 	 *
 	 * @return bool
-	 * @public
 	 */
-	function autoCreate() {
+	public function autoCreate() {
 		return false;
 	}
 
@@ -138,7 +127,7 @@ class AuthPlugin {
 	 *
 	 * @return bool
 	 */
-	function allowPasswordChange() {
+	public function allowPasswordChange() {
 		return true;
 	}
 
@@ -153,9 +142,8 @@ class AuthPlugin {
 	 * @param $user User object.
 	 * @param $password String: password.
 	 * @return bool
-	 * @public
 	 */
-	function setPassword( $user, $password ) {
+	public function setPassword( $user, $password ) {
 		return true;
 	}
 
@@ -165,9 +153,8 @@ class AuthPlugin {
 	 *
 	 * @param $user User object.
 	 * @return bool
-	 * @public
 	 */
-	function updateExternalDB( $user ) {
+	public function updateExternalDB( $user ) {
 		return true;
 	}
 
@@ -175,9 +162,8 @@ class AuthPlugin {
 	 * Check to see if external accounts can be created.
 	 * Return true if external accounts can be created.
 	 * @return bool
-	 * @public
 	 */
-	function canCreateAccounts() {
+	public function canCreateAccounts() {
 		return false;
 	}
 
@@ -190,9 +176,8 @@ class AuthPlugin {
 	 * @param string $email
 	 * @param string $realname
 	 * @return bool
-	 * @public
 	 */
-	function addUser( $user, $password, $email='', $realname='' ) {
+	public function addUser( $user, $password, $email='', $realname='' ) {
 		return true;
 	}
 
@@ -204,9 +189,19 @@ class AuthPlugin {
 	 * This is just a question, and shouldn't perform any actions.
 	 *
 	 * @return bool
-	 * @public
 	 */
-	function strict() {
+	public function strict() {
+		return false;
+	}
+
+	/**
+	 * Check if a user should authenticate locally if the global authentication fails.
+	 * If either this or strict() returns true, local authentication is not used.
+	 *
+	 * @param $username String: username.
+	 * @return bool
+	 */
+	public function strictUserAuth( $username ) {
 		return false;
 	}
 
@@ -220,9 +215,8 @@ class AuthPlugin {
 	 *
 	 * @param $user User object.
 	 * @param $autocreate bool True if user is being autocreated on login
-	 * @public
 	 */
-	function initUser( $user, $autocreate=false ) {
+	public function initUser( &$user, $autocreate=false ) {
 		# Override this to do something.
 	}
 
@@ -230,9 +224,43 @@ class AuthPlugin {
 	 * If you want to munge the case of an account name before the final
 	 * check, now is your chance.
 	 */
-	function getCanonicalName( $username ) {
+	public function getCanonicalName( $username ) {
 		return $username;
+	}
+	
+	/**
+	 * Get an instance of a User object
+	 *
+	 * @param $user User
+	 * @public
+	 */
+	public function getUserInstance( User &$user ) {
+		return new AuthPluginUser( $user );
 	}
 }
 
-
+class AuthPluginUser {
+	function __construct( $user ) {
+		# Override this!
+	}
+	
+	public function getId() {
+		# Override this!
+		return -1;
+	}
+	
+	public function isLocked() {
+		# Override this!
+		return false;
+	}
+	
+	public function isHidden() {
+		# Override this!
+		return false;
+	}
+	
+	public function resetAuthToken() {
+		# Override this!
+		return true;
+	}
+}

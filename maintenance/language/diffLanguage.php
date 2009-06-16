@@ -35,7 +35,8 @@
  * percentage of messages correctly localised and the number of messages to be
  * translated.
  *
- * @addtogroup Maintenance
+ * @file
+ * @ingroup MaintenanceLanguage
  */
 
 /** This script run from the commandline */
@@ -83,7 +84,6 @@ function getMediawikiMessages($languageCode = 'En') {
 		$langFile = $IP.'/languages/classes/Language'.$languageCode.'.php';
 		if (file_exists( $langFile ) ) {
 			print "Including $langFile\n";
-			global $wgNamespaceNamesEn;  // potentially unused global declaration?
 			include($langFile);
 		} else wfDie("ERROR: The file $langFile does not exist !\n");
 	}
