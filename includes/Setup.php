@@ -118,11 +118,11 @@ wfProfileOut( $fname.'-memcached' );
 wfProfileIn( $fname.'-SetupSession' );
 
 if ( $wgDBprefix ) {
-	$wgCookiePrefix = $wgDBname . '_' . $wgDBprefix;
+	$wgCookiePrefix = str_replace("+", "", $wgDBname . '_' . $wgDBprefix);
 } elseif ( $wgSharedDB ) {
 	$wgCookiePrefix = $wgSharedDB;
 } else {
-	$wgCookiePrefix = $wgDBname;
+	$wgCookiePrefix = str_replace("+", "", $wgDBname);
 }
 
 session_name( $wgCookiePrefix . '_session' );
