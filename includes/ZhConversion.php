@@ -3,9 +3,8 @@
  * Simplified/Traditional Chinese conversion tables
  *
  * Automatically generated using code and data in includes/zhtable/
- * Do not modify directly! 
+ * Do not modify directly!
  *
- * @package MediaWiki
 */
 
 $zh2TW=array(
@@ -8454,4 +8453,3 @@ $zh2SG=array(
 "房价" => "屋价",
 "泡麵" => "快速面",
 );
-?>

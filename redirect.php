@@ -1,11 +1,5 @@
 <?php
-unset( $DP );
-unset( $IP );
-$wgCommandLineMode = false;
-define( 'MEDIAWIKI', true );
-
-require_once( './includes/Defines.php' );
-require_once( './LocalSettings.php' );
+require_once( './includes/WebStart.php' );
 global $wgArticlePath;
 
 require_once( 'includes/WebRequest.php' );
@@ -16,4 +10,4 @@ $page = $wgRequest->getVal( 'wpDropdown' );
 $url = str_replace( "$1", urlencode( $page ), $wgArticlePath );
 
 header( "Location: {$url}" );
-?>
+

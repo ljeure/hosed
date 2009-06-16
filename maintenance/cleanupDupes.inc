@@ -1,32 +1,31 @@
 <?php
 # Copyright (C) 2004 Brion Vibber <brion@pobox.com>
 # http://www.mediawiki.org/
-# 
+#
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or 
+# the Free Software Foundation; either version 2 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
-# 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 # http://www.gnu.org/copyleft/gpl.html
 
 /**
  * If on the old non-unique indexes, check the cur table for duplicate
  * entries and remove them...
  *
- * @package MediaWiki
- * @subpackage Maintenance
+ * @addtogroup Maintenance
  */
 
 function fixDupes( $fixthem = false) {
-	$dbw =& wfGetDB( DB_MASTER );
+	$dbw = wfGetDB( DB_MASTER );
 	$cur = $dbw->tableName( 'cur' );
 	$old = $dbw->tableName( 'old' );
 	$dbw->query( "LOCK TABLES $cur WRITE, $old WRITE" );
@@ -47,14 +46,14 @@ END
 			echo "Just a demo...\n";
 		}
 		while( $row = $dbw->fetchObject( $res ) ) {
-			$ns = IntVal( $row->cur_namespace );
+			$ns = intval( $row->cur_namespace );
 			$title = $dbw->addQuotes( $row->cur_title );
-			
+
 			# Get the first responding ID; that'll be the one we keep.
 			$id = $dbw->selectField( 'cur', 'cur_id', array(
 				'cur_namespace' => $row->cur_namespace,
 				'cur_title'     => $row->cur_title ) );
-			
+
 			echo "$ns:$row->cur_title (canonical ID $id)\n";
 			if( $id != $row->id ) {
 				echo "  ** minimum ID $row->id; ";
@@ -74,7 +73,7 @@ END
 					}
 				}
 			}
-			
+
 			if( $fixthem ) {
 				$dbw->query( <<<END
 INSERT
@@ -113,15 +112,14 @@ END
 }
 
 function checkDupes( $fixthem = false, $indexonly = false ) {
-	global $wgDBname;
-	$dbw =& wfGetDB( DB_MASTER );
+	$dbw = wfGetDB( DB_MASTER );
 	if( $dbw->indexExists( 'cur', 'name_title' ) &&
 	    $dbw->indexUnique( 'cur', 'name_title' ) ) {
-		echo "$wgDBname: cur table has the current unique index; no duplicate entries.\n";
+		echo wfWikiID().": cur table has the current unique index; no duplicate entries.\n";
 	} elseif( $dbw->indexExists( 'cur', 'name_title_dup_prevention' ) ) {
-		echo "$wgDBname: cur table has a temporary name_title_dup_prevention unique index; no duplicate entries.\n";
+		echo wfWikiID().": cur table has a temporary name_title_dup_prevention unique index; no duplicate entries.\n";
 	} else {
-		echo "$wgDBname: cur table has the old non-unique index and may have duplicate entries.\n";
+		echo wfWikiID().": cur table has the old non-unique index and may have duplicate entries.\n";
 		if( !$indexonly ) {
 			fixDupes( $fixthem );
 		}

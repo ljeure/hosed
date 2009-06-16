@@ -1,28 +1,26 @@
 <?php
 /**
  *
- * @package MediaWiki
- * @subpackage SpecialPage
+ * @addtogroup SpecialPage
  */
 
 /**
  * constructor
  */
 function wfSpecialUserlogout() {
-	global $wgUser, $wgOut, $returnto;
+	global $wgUser, $wgOut;
 
 	if (wfRunHooks('UserLogout', array(&$wgUser))) {
-		
+
 		$wgUser->logout();
 
 		wfRunHooks('UserLogoutComplete', array(&$wgUser));
-		
-		$wgOut->mCookies = array();
+
 		$wgOut->setRobotpolicy( 'noindex,nofollow' );
-		$wgOut->addHTML( wfMsg( 'logouttext' ) );
+		$wgOut->addHTML( wfMsgExt( 'logouttext', array( 'parse' ) ) );
 		$wgOut->returnToMain();
-		
+
 	}
 }
 
-?>
+

@@ -4,27 +4,33 @@ function install_version_checks() {
 	# We dare not turn output buffer _off_ since this will break completely
 	# if PHP is globally configured to run through a gzip filter.
 	@ob_implicit_flush( true );
-	
+
 	if( !function_exists( 'version_compare' ) ) {
 		# version_compare was introduced in 4.1.0
-		die( "Your PHP version is much too old; 4.0.x will _not_ work. 4.3.2 or higher is recommended. ABORTING.\n" );
+		echo "Your PHP version is much too old; 4.0.x will _not_ work. 5.0.0 or higher is required. ABORTING.\n";
+		die( -1 );
 	}
-	if( version_compare( phpversion(), '4.3.2' ) < 0 ) {
-		echo "WARNING: PHP 4.3.2 or higher is recommended. Older versions from 4.1.x up may work but are not actively supported.\n\n";
-	}
-	
-	if (!extension_loaded('mysql')) {
-		if (!dl('mysql.so')) {
-			print 'Could not load MySQL driver! Please compile '.
-				  "php --with-mysql or install the mysql.so module.\n";
-		exit;
-		}
+	if( version_compare( phpversion(), '5.0.0' ) < 0 ) {
+		echo "PHP 5.0.0 or higher is required. If PHP 5 is available only when \n".
+   "PHP files have a .php5 extension, please navigate to <a href=\"index.php5\">index.php5</a> \n".
+   "to continue installation. ABORTING.\n";
+		die( -1 );
 	}
 	
+	// Test for PHP bug which breaks PHP 5.0.x on 64-bit...
+	// As of 1.8 this breaks lots of common operations instead
+	// of just some rare ones like export.
+	$borked = str_replace( 'a', 'b', array( -1 => -1 ) );
+	if( !isset( $borked[-1] ) ) {
+		echo "PHP 5.0.x is buggy on your 64-bit system; you must upgrade to PHP 5.1.x\n" .
+			"or higher. ABORTING. (http://bugs.php.net/bug.php?id=34879 for details)\n";
+		die( -1 );
+	}
+
 	global $wgCommandLineMode;
 	$wgCommandLineMode = true;
 	umask( 000 );
-	set_time_limit( 0 );
+	@set_time_limit( 0 );
 }
 
 function copyfile( $sdir, $name, $ddir, $perms = 0664 ) {
@@ -57,126 +63,78 @@ function copydirectory( $source, $dest ) {
 }
 
 function readconsole( $prompt = '' ) {
-	if ( function_exists( 'readline' ) ) {
-		return readline( $prompt );
-	} else {
-		print $prompt;
-		$fp = fopen( 'php://stdin', 'r' );
-		$st = fgets($fp, 1024);
-		if ($st === false) return false;
-		$resp = trim( $st );
-		fclose( $fp );
-		return $resp;
-	}
-}
-
-function replacevars( $ins ) {
-	$varnames = array(
-		'wgDBserver', 'wgDBname', 'wgDBintlname', 'wgDBuser',
-		'wgDBpassword', 'wgDBsqluser', 'wgDBsqlpassword',
-		'wgDBadminuser', 'wgDBadminpassword', 'wgDBprefix'
-	);
-
-	foreach ( $varnames as $var ) {
-		if( isset( $GLOBALS[$var] ) ) {
-			$val = addslashes( $GLOBALS[$var] );
-			$ins = str_replace( '{$' . $var . '}', $val, $ins );
-			$ins = str_replace( '/*$' . $var . '*/`', '`' . $val, $ins );
-			$ins = str_replace( '/*$' . $var . '*/', $val, $ins );
+	static $isatty = null;
+	if ( is_null( $isatty ) ) {
+		if ( !function_exists( 'posix_isatty' ) || posix_isatty( 0 /*STDIN*/ ) ) {
+			$isatty = true;
+		} else {
+			$isatty = false;
 		}
 	}
-	return $ins;
+
+	if ( $isatty && function_exists( 'readline' ) ) {
+		return readline( $prompt );
+	} else {
+		if ( $isatty ) {
+			print $prompt;
+		}
+		if ( feof( STDIN ) ) {
+			return false;
+		}
+		$st = fgets(STDIN, 1024);
+		if ($st === false) return false;
+		$resp = trim( $st );
+		return $resp;
+	}
 }
 
 #
 # Read and execute SQL commands from a file
 #
-function dbsource( $fname, $database = false ) {
-	$fp = fopen( $fname, 'r' );
-	if ( false === $fp ) {
-		print "Could not open \"{$fname}\".\n";
-		exit();
-	}
-
-	$cmd = "";
-	$done = false;
-
-	while ( ! feof( $fp ) ) {
-		$line = trim( fgets( $fp, 1024 ) );
-		$sl = strlen( $line ) - 1;
-
-		if ( $sl < 0 ) { continue; }
-		if ( '-' == $line{0} && '-' == $line{1} ) { continue; }
-
-		if ( ';' == $line{$sl} ) {
-			$done = true;
-			$line = substr( $line, 0, $sl );
-		}
-
-		if ( '' != $cmd ) { $cmd .= ' '; }
-		$cmd .= $line;
-
-		if ( $done ) {
-			$cmd = replacevars( $cmd );
-			if( $database )
-				$res = $database->query( $cmd );
-			else
-				$res = mysql_query( $cmd );
-
-			if ( false === $res ) {
-				$err = mysql_error();
-				print "Query \"{$cmd}\" failed with error code \"$err\".\n";
-				exit();
-			}
-
-			$cmd = '';
-			$done = false;
+function dbsource( $fname, $db = false ) {
+	if ( !$db ) {
+		// Try $wgDatabase, which is used in the install and update scripts
+		global $wgDatabase;
+		if ( isset( $wgDatabase ) ) {
+			$db = $wgDatabase;
+		} else {
+			// No? Well, we must be outside of those scripts, so use the standard method
+			$db = wfGetDB( DB_MASTER );
 		}
 	}
-	fclose( $fp );
+	$error = $db->sourceFile( $fname );
+	if ( $error !== true ) {
+		print $error;
+		exit(1);
+	}
 }
 
-# Obsolete, use Database::fieldExists()
-function field_exists( $table, $field ) {
-	$fname = 'Update script: field_exists';
-	$db =& wfGetDB( DB_SLAVE );
-	$res = $db->query( "DESCRIBE $table", $fname );
-	$found = false;
-	
-	while ( $row = $db->fetchObject( $res ) ) {
-		if ( $row->Field == $field ) {
-			$found = true;
-			break;
-		}
-	}
-	return $found;
+/**
+ * Get the value of session.save_path
+ *
+ * Per http://uk.php.net/manual/en/ref.session.php#ini.session.save-path,
+ * this might have some additional preceding parts which need to be
+ * ditched
+ *
+ * @return string
+ */
+function mw_get_session_save_path() {
+	$path = ini_get( 'session.save_path' );
+	$path = substr( $path, strrpos( $path, ';' ) );
+	return $path;
 }
 
-# Obsolete Database::tableExists()
-function table_exists( $db ) {
-	global $wgDBname;
-	$res = mysql_list_tables( $wgDBname );
-	if( !$res ) {
-		echo "** " . mysql_error() . "\n";
-		return false;
-	}
-	for( $i = mysql_num_rows( $res ) - 1; $i--; $i > 0 ) {
-		if( mysql_tablename( $res, $i ) == $db ) return true;
-	}
-	return false;
+/**
+ * Is dl() available to us?
+ *
+ * According to http://uk.php.net/manual/en/function.dl.php, dl()
+ * is *not* available when `enable_dl` is off, or under `safe_mode`
+ *
+ * @return bool
+ */
+function mw_have_dl() {
+	return function_exists( 'dl' )
+		&& is_callable( 'dl' )
+		&& ini_get( 'enable_dl' )
+		&& !ini_get( 'safe_mode' );
 }
-
-# Obsolete, use Database:fieldInfo()
-function field_info( $table, $field ) {
-	$res = mysql_query( "SELECT * FROM $table LIMIT 1" );
-	$n = mysql_num_fields( $res );
-	for( $i = 0; $i < $n; $i++ ) {
-		$meta = mysql_fetch_field( $res, $i );
-		if( $field == $meta->name ) {
-			return $meta;
-		}
-	}
-	return false;
-}
-
-?>

@@ -1,84 +1,93 @@
 <?php
-/**
-*
-* @package MediaWiki
-* @subpackage SpecialPage
-*/
 
 /**
-* constructor
-*/
-function wfSpecialStatistics() {
-	global $wgUser, $wgOut, $wgLang, $wgRequest;
-	$fname = 'wfSpecialStatistics';
+ * Special page lists various statistics, including the contents of
+ * `site_stats`, plus page view details if enabled
+ *
+ * @addtogroup SpecialPage
+ */
 
-	$action = $wgRequest->getVal( 'action' );
+/**
+ * Show the special page
+ *
+ * @param mixed $par (not used)
+ */
+function wfSpecialStatistics( $par = '' ) {
+	global $wgOut, $wgLang, $wgRequest;
+	$dbr = wfGetDB( DB_SLAVE );
 
-	$dbr =& wfGetDB( DB_SLAVE );
-	extract( $dbr->tableNames( 'page', 'site_stats', 'user', 'user_groups' ) );
+	$views = SiteStats::views();
+	$edits = SiteStats::edits();
+	$good = SiteStats::articles();
+	$images = SiteStats::images();
+	$total = SiteStats::pages();
+	$users = SiteStats::users();
+	$admins = SiteStats::admins();
+	$numJobs = SiteStats::jobs();
 
-	$row = $dbr->selectRow( 'site_stats', '*', false, $fname );
-	$views = $row->ss_total_views;
-	$edits = $row->ss_total_edits;
-	$good = $row->ss_good_articles;
-
-	# This code is somewhat schema-agnostic, because I'm changing it in a minor release -- TS
-	if ( isset( $row->ss_total_pages ) && $row->ss_total_pages == -1 ) {
-		# Update schema
-		$u = new SiteStatsUpdate( 0, 0, 0 );
-		$u->doUpdate();
-		$row = $dbr->selectRow( 'site_stats', '*', false, $fname );
-	}
-
-	if ( isset( $row->ss_total_pages ) ) {
-		$total = $row->ss_total_pages;
-	} else {
-		$sql = "SELECT COUNT(page_namespace) AS total FROM $page";
-		$res = $dbr->query( $sql, $fname );
-		$pageRow = $dbr->fetchObject( $res );
-		$total = $pageRow->total;
-	}
-
-	if ( isset( $row->ss_users ) ) {
-		$users = $row->ss_users;
-	} else {
-		$sql = "SELECT MAX(user_id) AS total FROM $user";
-		$res = $dbr->query( $sql, $fname );
-		$userRow = $dbr->fetchObject( $res );
-		$users = $userRow->total;
-	} 	
-
-	$sql = "SELECT COUNT(*) AS total FROM $user_groups WHERE ug_group='sysop'";
-	$res = $dbr->query( $sql, $fname );
-	$row = $dbr->fetchObject( $res );
-	$admins = $row->total;
-	
-	if ($action == 'raw') {
+	if( $wgRequest->getVal( 'action' ) == 'raw' ) {
 		$wgOut->disable();
 		header( 'Pragma: nocache' );
-		echo "total=$total;good=$good;views=$views;edits=$edits;users=$users;admins=$admins\n";
+		echo "total=$total;good=$good;views=$views;edits=$edits;users=$users;admins=$admins;images=$images;jobs=$numJobs\n";
 		return;
 	} else {
-		$text = '==' . wfMsg( 'sitestats' ) . "==\n" ;
-		$text .= wfMsg( 'sitestatstext',
+		$text = "__NOTOC__\n";
+		$text .= '==' . wfMsg( 'sitestats' ) . "==\n";
+		$text .= wfMsgExt( 'sitestatstext', array( 'parsemag' ),
 			$wgLang->formatNum( $total ),
 			$wgLang->formatNum( $good ),
 			$wgLang->formatNum( $views ),
 			$wgLang->formatNum( $edits ),
 			$wgLang->formatNum( sprintf( '%.2f', $total ? $edits / $total : 0 ) ),
-			$wgLang->formatNum( sprintf( '%.2f', $edits ? $views / $edits : 0 ) ) );
-	
-		$text .= "\n==" . wfMsg( 'userstats' ) . "==\n";
-	
-		$text .= wfMsg( 'userstatstext',
+			$wgLang->formatNum( sprintf( '%.2f', $edits ? $views / $edits : 0 ) ),
+			$wgLang->formatNum( $numJobs ),
+			$wgLang->formatNum( $images )
+	   	)."\n";
+
+		$text .= "==" . wfMsg( 'userstats' ) . "==\n";
+		$text .= wfMsgExt( 'userstatstext', array ( 'parsemag' ),
 			$wgLang->formatNum( $users ),
 			$wgLang->formatNum( $admins ),
-			'[[' . wfMsg( 'administrators' ) . ']]',
-			// should logically be after #admins, danm backwards compatability!
-			$wgLang->formatNum( sprintf( '%.2f', $admins / $users * 100 ) )
-		);
+			'[[' . wfMsgForContent( 'grouppage-sysop' ) . ']]', # TODO somehow remove, kept for backwards compatibility
+			$wgLang->formatNum( sprintf( '%.2f', $admins / $users * 100 ) ),
+			User::makeGroupLinkWiki( 'sysop' )
+		)."\n";
+
+		global $wgDisableCounters, $wgMiserMode, $wgUser, $wgLang, $wgContLang;
+		if( !$wgDisableCounters && !$wgMiserMode ) {
+			$res = $dbr->select(
+				'page',
+				array(
+					'page_namespace',
+					'page_title',
+					'page_counter',
+				),
+				array(
+					'page_is_redirect' => 0,
+					'page_counter > 0',
+				),
+				__METHOD__,
+				array(
+					'ORDER BY' => 'page_counter DESC',
+					'LIMIT' => 10,
+				)
+			);
+			if( $res->numRows() > 0 ) {
+				$text .= "==" . wfMsg( 'statistics-mostpopular' ) . "==\n";
+				while( $row = $res->fetchObject() ) {
+					$title = Title::makeTitleSafe( $row->page_namespace, $row->page_title );
+					if( $title instanceof Title )
+						$text .= '* [[:' . $title->getPrefixedText() . ']] (' . $wgLang->formatNum( $row->page_counter ) . ")\n";
+				}
+				$res->free();
+			}
+		}
 		
-		$wgOut->addWikiText( $text );
+		$footer = wfMsg( 'statistics-footer' );
+		if( !wfEmptyMsg( 'statistics-footer', $footer ) && $footer != '' )
+			$text .= "\n" . $footer;
+			
+		$wgOut->addWikiText( $text );		
 	}
+	
 }
-?>

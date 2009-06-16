@@ -22,12 +22,12 @@
  * 2005-03-14
  *
  * @todo document
- * @package MediaWiki
- * @subpackage Maintenance
+ * @addtogroup Maintenance
  */
 
 if( php_sapi_name() != 'cli' ) {
-	die( "Please customize the settings and run me from the command line." );
+	echo "Please customize the settings and run me from the command line.";
+	die( -1 );
 }
 
 /** Set these correctly! */
@@ -45,7 +45,7 @@ $wgFieldSeparator = "\xb3"; # Some wikis may use different char
 	$FS3 = $FS."3" ;
 
 # Unicode sanitization tools
-require_once( '../includes/normal/UtfNormal.php' );
+require_once( dirname( dirname( __FILE__ ) ) . '/includes/normal/UtfNormal.php' );
 
 $usercache = array();
 
@@ -56,7 +56,7 @@ importPages();
 function importPages()
 {
 	global $wgRootDirectory;
-	
+
 	$gt = '>';
 	echo <<<END
 <?xml version="1.0" encoding="UTF-8" ?$gt
@@ -89,6 +89,7 @@ function importPageDirectory( $dir, $prefix = "" )
 	echo "\n<!-- Checking page directory " . xmlCommentSafe( $dir ) . " -->\n";
 	$mydir = opendir( $dir );
 	while( $entry = readdir( $mydir ) ) {
+		$m = array();
 		if( preg_match( '/^(.+)\.db$/', $entry, $m ) ) {
 			echo importPage( $prefix . $m[1] );
 		} else {
@@ -120,17 +121,18 @@ function useModFilename( $title ) {
 
 function fetchPage( $title )
 {
-	global $FS,$FS1,$FS2,$FS3, $wgRootDirectory;
-	
+	global $FS1,$FS2,$FS3, $wgRootDirectory;
+
 	$fname = $wgRootDirectory . "/page/" . useModFilename( $title ) . ".db";
 	if( !file_exists( $fname ) ) {
-		die( "Couldn't open file '$fname' for page '$title'.\n" );
+		echo "Couldn't open file '$fname' for page '$title'.\n";
+		die( -1 );
 	}
-	
+
 	$page = splitHash( $FS1, file_get_contents( $fname ) );
 	$section = splitHash( $FS2, $page["text_default"] );
 	$text = splitHash( $FS3, $section["data"] );
-	
+
 	return array2object( array( "text" => $text["text"] , "summary" => $text["summary"] ,
 		"minor" => $text["minor"] , "ts" => $section["ts"] ,
 		"username" => $section["username"] , "host" => $section["host"] ) );
@@ -138,14 +140,14 @@ function fetchPage( $title )
 
 function fetchKeptPages( $title )
 {
-	global $FS,$FS1,$FS2,$FS3, $wgRootDirectory, $wgTimezoneCorrection;
-	
+	global $FS1,$FS2,$FS3, $wgRootDirectory;
+
 	$fname = $wgRootDirectory . "/keep/" . useModFilename( $title ) . ".kp";
 	if( !file_exists( $fname ) ) return array();
-	
+
 	$keptlist = explode( $FS1, file_get_contents( $fname ) );
 	array_shift( $keptlist ); # Drop the junk at beginning of file
-	
+
 	$revisions = array();
 	foreach( $keptlist as $rev ) {
 		$section = splitHash( $FS2, $rev );
@@ -197,12 +199,12 @@ function checkUserCache( $name, $host )
 function importPage( $title )
 {
 	global $usercache;
-	
+
 	echo "\n<!-- Importing page " . xmlCommentSafe( $title ) . " -->\n";
 	$page = fetchPage( $title );
 
 	$newtitle = xmlsafe( str_replace( '_', ' ', recodeText( $title ) ) );
-	
+
 	$munged = mungeFormat( $page->text );
 	if( $munged != $page->text ) {
 		/**
@@ -233,17 +235,17 @@ END;
 	# History
 	$revisions = array_merge( $revisions, fetchKeptPages( $title ) );
 	if(count( $revisions ) == 0 ) {
-		return $sql;
+		return NULL; // Was "$sql", which does not appear to be defined.
 	}
-	
+
 	foreach( $revisions as $rev ) {
 		$text      = xmlsafe( recodeText( $rev->text ) );
 		$minor     = ($rev->minor ? '<minor/>' : '');
-		list( $userid, $username ) = checkUserCache( $rev->username, $rev->host );
+		list( /* $userid */ , $username ) = checkUserCache( $rev->username, $rev->host );
 		$username  = xmlsafe( recodeText( $username ) );
 		$timestamp = xmlsafe( timestamp2ISO8601( $rev->ts ) );
 		$comment   = xmlsafe( recodeText( $rev->summary ) );
-		
+
 		$xml .= <<<END
 		<revision>
 			<timestamp>$timestamp</timestamp>
@@ -303,7 +305,7 @@ function xmlsafe( $string ) {
 	 * XML output invalid, so be sure to strip them out.
 	 */
 	$string = UtfNormal::cleanUp( $string );
-	
+
 	$string = htmlspecialchars( $string );
 	return $string;
 }
@@ -331,7 +333,7 @@ function mungeFormat( $text ) {
 	$staged = preg_replace_callback(
 		'/(<nowiki>.*?<\\/nowiki>|(?:http|https|ftp):\\S+|\[\[[^]\\n]+]])/s',
 		'nowikiPlaceholder', $text );
-	
+
 	# This is probably not  100% correct, I'm just
 	# glancing at the UseModWiki code.
 	$upper   = "[A-Z]";
@@ -340,10 +342,10 @@ function mungeFormat( $text ) {
 	$camel   = "(?:$upper+$lower+$upper+$any*)";
 	$subpage = "(?:\\/$any+)";
 	$substart = "(?:\\/$upper$any*)";
-	
+
 	$munged = preg_replace( "/(?!\\[\\[)($camel$subpage*|$substart$subpage*)\\b(?!\\]\\]|>)/",
 		'[[$1]]', $staged );
-	
+
 	$final = preg_replace( '/' . preg_quote( placeholder() ) . '/es',
 		'array_shift( $nowiki )', $munged );
 	return $final;
@@ -360,4 +362,4 @@ function nowikiPlaceholder( $matches ) {
 	return placeholder();
 }
 
-?>
+

@@ -1,12 +1,10 @@
 <?php
 /**
- * @package MediaWiki
  */
 
 /**
  * Client for querying zhdaemon
  *
- * @package MediaWiki
  */
 class ZhClient {
 	var $mHost, $mPort, $mFP, $mConnected;
@@ -38,6 +36,7 @@ class ZhClient {
 	 */
 	function connect() {
 		wfSuppressWarnings();
+		$errno = $errstr = '';
 		$this->mFP = fsockopen($this->mHost, $this->mPort, $errno, $errstr, 30);
 		wfRestoreWarnings();
 		if(!$this->mFP) {
@@ -96,12 +95,12 @@ class ZhClient {
 	}
 
 	/**
-	 * Convert the input to all possible variants 
+	 * Convert the input to all possible variants
 	 *
 	 * @param string $text input text
 	 * @return array langcode => converted_string
 	 * @access public
-	 */	
+	 */
 	function convertToAllVariants($text) {
 		$len = strlen($text);
 		$q = "CONV ALL $len\n$text";
@@ -115,11 +114,10 @@ class ZhClient {
 		foreach($info as $variant) {
 			list($code, $len) = explode(' ', $variant);
 			$ret[strtolower($code)] = substr($data, $i, $len);
-			$r = $ret[strtolower($code)];
 			$i+=$len;
 		}
 		return $ret;
-    }
+	}
 	/**
 	 * Perform word segmentation
 	 *
@@ -146,4 +144,3 @@ class ZhClient {
 		fclose($this->mFP);
 	}
 }
-?>

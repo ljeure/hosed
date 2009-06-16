@@ -1,20 +1,15 @@
 <?php
 /**
  * Contain a class for special pages
- * @package MediaWiki
- * @subpackage Search
- */
-
-/**
- * @package MediaWiki
+ * @addtogroup Search
  */
 class SearchEngine {
 	var $limit = 10;
 	var $offset = 0;
 	var $searchTerms = array();
-	var $namespaces = array( 0 );
+	var $namespaces = array( NS_MAIN );
 	var $showRedirects = false;
-	
+
 	/**
 	 * Perform a full text search query and return a result set.
 	 * If title searches are not supported or disabled, return null.
@@ -40,66 +35,81 @@ class SearchEngine {
 	function searchTitle( $term ) {
 		return null;
 	}
-	
+
 	/**
 	 * If an exact title match can be find, or a very slightly close match,
 	 * return the title. If no match, returns NULL.
 	 *
-	 * @static
 	 * @param string $term
 	 * @return Title
-	 * @access private
 	 */
-	function getNearMatch( $term ) {
-		# Exact match? No need to look further.
-		$title = Title::newFromText( $term );
-		if (is_null($title))
-			return NULL;
+	public static function getNearMatch( $searchterm ) {
+		global $wgContLang;
 
-		if ( $title->getNamespace() == NS_SPECIAL || $title->exists() ) {
-			return $title;
+		$allSearchTerms = array($searchterm);
+
+		if($wgContLang->hasVariants()){
+			$allSearchTerms = array_merge($allSearchTerms,$wgContLang->convertLinkToAllVariants($searchterm));
 		}
 
-		# Now try all lower case (i.e. first letter capitalized)
-		#
-		$title = Title::newFromText( strtolower( $term ) );
-		if ( $title->exists() ) {
-			return $title;
-		}
+		foreach($allSearchTerms as $term){
 
-		# Now try capitalized string
-		#
-		$title = Title::newFromText( ucwords( strtolower( $term ) ) );
-		if ( $title->exists() ) {
-			return $title;
-		}
+			# Exact match? No need to look further.
+			$title = Title::newFromText( $term );
+			if (is_null($title))
+				return NULL;
 
-		# Now try all upper case
-		#
-		$title = Title::newFromText( strtoupper( $term ) );
-		if ( $title->exists() ) {
-			return $title;
-		}
-		
-		global $wgCapitalLinks, $wgContLang;
-		if( !$wgCapitalLinks ) {
-			// Catch differs-by-first-letter-case-only
-			$title = Title::newFromText( $wgContLang->ucfirst( $term ) );
+			if ( $title->getNamespace() == NS_SPECIAL || $title->exists() ) {
+				return $title;
+			}
+
+			# Now try all lower case (i.e. first letter capitalized)
+			#
+			$title = Title::newFromText( $wgContLang->lc( $term ) );
 			if ( $title->exists() ) {
 				return $title;
 			}
-			$title = Title::newFromText( $wgContLang->lcfirst( $term ) );
+
+			# Now try capitalized string
+			#
+			$title = Title::newFromText( $wgContLang->ucwords( $term ) );
 			if ( $title->exists() ) {
 				return $title;
 			}
+
+			# Now try all upper case
+			#
+			$title = Title::newFromText( $wgContLang->uc( $term ) );
+			if ( $title->exists() ) {
+				return $title;
+			}
+
+			# Now try Word-Caps-Breaking-At-Word-Breaks, for hyphenated names etc
+			$title = Title::newFromText( $wgContLang->ucwordbreaks($term) );
+			if ( $title->exists() ) {
+				return $title;
+			}
+
+			global $wgCapitalLinks, $wgContLang;
+			if( !$wgCapitalLinks ) {
+				// Catch differs-by-first-letter-case-only
+				$title = Title::newFromText( $wgContLang->ucfirst( $term ) );
+				if ( $title->exists() ) {
+					return $title;
+				}
+				$title = Title::newFromText( $wgContLang->lcfirst( $term ) );
+				if ( $title->exists() ) {
+					return $title;
+				}
+			}
 		}
 
-		$title = Title::newFromText( $term );
+		$title = Title::newFromText( $searchterm );
 
 		# Entering an IP address goes to the contributions page
 		if ( ( $title->getNamespace() == NS_USER && User::isIP($title->getText() ) )
-			|| User::isIP( trim( $term ) ) ) {
-			return Title::makeTitle( NS_SPECIAL, "Contributions/" . $title->getDbkey() );
+			|| User::isIP( trim( $searchterm ) ) ) {
+			return SpecialPage::getTitleFor( 'Contributions', $title->getDbkey() );
 		}
 
 
@@ -108,15 +118,32 @@ class SearchEngine {
 			return $title;
 		}
 		
+		# Go to images that exist even if there's no local page.
+		# There may have been a funny upload, or it may be on a shared
+		# file repository such as Wikimedia Commons.
+		if( $title->getNamespace() == NS_IMAGE ) {
+			$image = wfFindFile( $title );
+			if( $image ) {
+				return $title;
+			}
+		}
+
+		# MediaWiki namespace? Page may be "implied" if not customized.
+		# Just return it, with caps forced as the message system likes it.
+		if( $title->getNamespace() == NS_MEDIAWIKI ) {
+			return Title::makeTitle( NS_MEDIAWIKI, $wgContLang->ucfirst( $title->getText() ) );
+		}
+
 		# Quoted term? Try without the quotes...
-		if( preg_match( '/^"([^"]+)"$/', $term, $matches ) ) {
+		$matches = array();
+		if( preg_match( '/^"([^"]+)"$/', $searchterm, $matches ) ) {
 			return SearchEngine::getNearMatch( $matches[1] );
 		}
 		
 		return NULL;
 	}
-	
-	function legalSearchChars() {
+
+	public static function legalSearchChars() {
 		return "A-Za-z_'0-9\\x80-\\xFF\\-";
 	}
 
@@ -129,10 +156,10 @@ class SearchEngine {
 	 * @access public
 	 */
 	function setLimitOffset( $limit, $offset = 0 ) {
-		$this->limit = IntVal( $limit );
-		$this->offset = IntVal( $offset );
+		$this->limit = intval( $limit );
+		$this->offset = intval( $offset );
 	}
-	
+
 	/**
 	 * Set which namespaces the search should include.
 	 * Give an array of namespace index numbers.
@@ -143,13 +170,12 @@ class SearchEngine {
 	function setNamespaces( $namespaces ) {
 		$this->namespaces = $namespaces;
 	}
-	
+
 	/**
 	 * Make a list of searchable namespaces and their canonical names.
 	 * @return array
-	 * @access public
 	 */
-	function searchableNamespaces() {
+	public static function searchableNamespaces() {
 		global $wgContLang;
 		$arr = array();
 		foreach( $wgContLang->getNamespaces() as $ns => $name ) {
@@ -159,7 +185,7 @@ class SearchEngine {
 		}
 		return $arr;
 	}
-	
+
 	/**
 	 * Return a 'cleaned up' search string
 	 *
@@ -175,23 +201,17 @@ class SearchEngine {
 	 * active database backend, and return a configured instance.
 	 *
 	 * @return SearchEngine
-	 * @access private
 	 */
-	function create() {
-		global $wgDBtype, $wgDBmysql4, $wgSearchType;
+	public static function create() {
+		global $wgDBtype, $wgSearchType;
 		if( $wgSearchType ) {
 			$class = $wgSearchType;
 		} elseif( $wgDBtype == 'mysql' ) {
-			if( $wgDBmysql4 ) {
-				$class = 'SearchMySQL4';
-				require_once( 'SearchMySQL4.php' );
-			} else {
-				$class = 'SearchMysql3';
-				require_once( 'SearchMySQL3.php' );
-			}
-		} else if ( $wgDBtype == 'PostgreSQL' ) {
-			$class = 'SearchTsearch2';
-			require_once( 'SearchTsearch2.php' );
+			$class = 'SearchMySQL4';
+		} else if ( $wgDBtype == 'postgres' ) {
+			$class = 'SearchPostgres';
+		} else if ( $wgDBtype == 'oracle' ) {
+			$class = 'SearchOracle';
 		} else {
 			$class = 'SearchEngineDummy';
 		}
@@ -199,7 +219,7 @@ class SearchEngine {
 		$search->setLimitOffset(0,0);
 		return $search;
 	}
-	
+
 	/**
 	 * Create or update the search index record for the given page.
 	 * Title and text should be pre-processed.
@@ -221,12 +241,15 @@ class SearchEngine {
 	 * @param string $title
 	 * @abstract
 	 */
-    function updateTitle( $id, $title ) {
+	function updateTitle( $id, $title ) {
 		// no-op
-    }
+	}
 }
 
-/** @package MediaWiki */
+
+/**
+ * @addtogroup Search
+ */
 class SearchResultSet {
 	/**
 	 * Fetch an array of regular expression fragments for matching
@@ -239,11 +262,11 @@ class SearchResultSet {
 	function termMatches() {
 		return array();
 	}
-	
+
 	function numRows() {
 		return 0;
 	}
-	
+
 	/**
 	 * Return true if results are included in this result set.
 	 * @return bool
@@ -252,7 +275,7 @@ class SearchResultSet {
 	function hasResults() {
 		return false;
 	}
-	
+
 	/**
 	 * Some search modes return a total hit count for the query
 	 * in the entire article database. This may include pages
@@ -267,7 +290,7 @@ class SearchResultSet {
 	function getTotalHits() {
 		return null;
 	}
-	
+
 	/**
 	 * Some search modes return a suggested alternate term if there are
 	 * no exact hits. Returns true if there is one on this set.
@@ -278,7 +301,7 @@ class SearchResultSet {
 	function hasSuggestion() {
 		return false;
 	}
-	
+
 	/**
 	 * Some search modes return a suggested alternate term if there are
 	 * no exact hits. Check hasSuggestion() first.
@@ -289,7 +312,7 @@ class SearchResultSet {
 	function getSuggestion() {
 		return '';
 	}
-	
+
 	/**
 	 * Fetches next search result, or false.
 	 * @return SearchResult
@@ -299,14 +322,25 @@ class SearchResultSet {
 	function next() {
 		return false;
 	}
+	
+	/**
+	 * Frees the result set, if applicable.
+	 * @ access public
+	 */
+	function free() {
+		// ...
+	}
 }
 
-/** @package MediaWiki */
+
+/**
+ * @addtogroup Search
+ */
 class SearchResult {
 	function SearchResult( $row ) {
 		$this->mTitle = Title::makeTitle( $row->page_namespace, $row->page_title );
 	}
-	
+
 	/**
 	 * @return Title
 	 * @access public
@@ -314,7 +348,7 @@ class SearchResult {
 	function getTitle() {
 		return $this->mTitle;
 	}
-	
+
 	/**
 	 * @return double or null if not supported
 	 */
@@ -324,11 +358,17 @@ class SearchResult {
 }
 
 /**
- * @package MediaWiki
+ * @addtogroup Search
  */
 class SearchEngineDummy {
 	function search( $term ) {
 		return null;
 	}
+	function setLimitOffset($l, $o) {}
+	function legalSearchChars() {}
+	function update() {}
+	function setnamespaces() {}
+	function searchtitle() {}
+	function searchtext() {}
 }
 

@@ -1,56 +1,89 @@
 <?php
+
 /**
- * Image download authorisation script
- * 
- * To use, in LocalSettings.php set $wgUploadDirectory to point to a non-public
- * directory, and $wgUploadPath to point to this file. Also set $wgWhitelistRead
- * to an array of pages you want everyone to be able to access. Your server must
- * support PATH_INFO, CGI-based configurations generally don't. 
+ * Image authorisation script
+ *
+ * To use this:
+ *
+ * Set $wgUploadDirectory to a non-public directory (not web accessible)
+ * Set $wgUploadPath to point to this file
+ *
+ * Your server needs to support PATH_INFO; CGI-based configurations
+ * usually don't.
  */
-# Valid web server entry point, enable includes
-define( 'MEDIAWIKI', true );
+ 
+define( 'MW_NO_OUTPUT_COMPRESSION', 1 );
+require_once( dirname( __FILE__ ) . '/includes/WebStart.php' );
+wfProfileIn( 'img_auth.php' );
+require_once( dirname( __FILE__ ) . '/includes/StreamFile.php' );
 
-require_once( 'includes/Defines.php' );
-require_once( './LocalSettings.php' );
-require_once( 'includes/Setup.php' );
-require_once( 'includes/StreamFile.php' );
-
+// Extract path and image information
 if( !isset( $_SERVER['PATH_INFO'] ) ) {
+	wfDebugLog( 'img_auth', 'Missing PATH_INFO' );
 	wfForbidden();
 }
 
-# Get filenames/directories
+$path = $_SERVER['PATH_INFO'];
 $filename = realpath( $wgUploadDirectory . $_SERVER['PATH_INFO'] );
-$realUploadDirectory = realpath( $wgUploadDirectory );
-$imageName = $wgLang->getNsText( NS_IMAGE ) . ":" . basename( $_SERVER['PATH_INFO'] );
+$realUpload = realpath( $wgUploadDirectory );
+wfDebugLog( 'img_auth', "\$path is {$path}" );
+wfDebugLog( 'img_auth', "\$filename is {$filename}" );
 
-# Check if the filename is in the correct directory
-if ( substr( $filename, 0, strlen( $realUploadDirectory ) ) != $realUploadDirectory ) {
+// Basic directory traversal check
+if( substr( $filename, 0, strlen( $realUpload ) ) != $realUpload ) {
+	wfDebugLog( 'img_auth', 'Requested path not in upload directory' );
 	wfForbidden();
 }
 
-if ( is_array( $wgWhitelistRead ) && !in_array( $imageName, $wgWhitelistRead ) && !$wgUser->getID() ) {
+// Extract the file name and chop off the size specifier
+// (e.g. 120px-Foo.png => Foo.png)
+$name = wfBaseName( $path );
+if( preg_match( '!\d+px-(.*)!i', $name, $m ) )
+	$name = $m[1];
+wfDebugLog( 'img_auth', "\$name is {$name}" );
+
+$title = Title::makeTitleSafe( NS_IMAGE, $name );
+if( !$title instanceof Title ) {
+	wfDebugLog( 'img_auth', "Unable to construct a valid Title from `{$name}`" );
+	wfForbidden();
+}
+$title = $title->getPrefixedText();
+
+// Check the whitelist if needed
+if( !$wgUser->getId() && ( !is_array( $wgWhitelistRead ) || !in_array( $title, $wgWhitelistRead ) ) ) {
+	wfDebugLog( 'img_auth', "Not logged in and `{$title}` not in whitelist." );
 	wfForbidden();
 }
 
 if( !file_exists( $filename ) ) {
+	wfDebugLog( 'img_auth', "`{$filename}` does not exist" );
 	wfForbidden();
 }
 if( is_dir( $filename ) ) {
+	wfDebugLog( 'img_auth', "`{$filename}` is a directory" );
 	wfForbidden();
 }
 
-# Write file
+// Stream the requested file
+wfDebugLog( 'img_auth', "Streaming `{$filename}`" );
 wfStreamFile( $filename );
+wfLogProfilingData();
 
+/**
+ * Issue a standard HTTP 403 Forbidden header and a basic
+ * error message, then end the script
+ */
 function wfForbidden() {
 	header( 'HTTP/1.0 403 Forbidden' );
-	print 
-"<html><body>
-<h1>Access denied</h1>
-<p>You need to log in to access files on this server</p>
-</body></html>";
-	exit;
+	header( 'Content-Type: text/html; charset=utf-8' );
+	echo <<<END
+<html>
+<body>
+<h1>Access Denied</h1>
+<p>You need to log in to access files on this server.</p>
+</body>
+</html>
+END;
+	wfLogProfilingData();
+	exit();
 }
-
-?>

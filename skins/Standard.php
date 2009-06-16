@@ -3,30 +3,28 @@
  * See skin.txt
  *
  * @todo document
- * @package MediaWiki
- * @subpackage Skins
+ * @addtogroup Skins
  */
 
 if( !defined( 'MEDIAWIKI' ) )
-	die();
+	die( -1 );
 
 /**
  * @todo document
- * @package MediaWiki
- * @subpackage Skins
+ * @addtogroup Skins
  */
 class SkinStandard extends Skin {
 
 	/**
 	 *
 	 */
-	function getHeadScripts() {
-		global $wgStylePath, $wgJsMimeType;
+	function getHeadScripts( $allowUserJs ) {
+		global $wgStylePath, $wgJsMimeType, $wgStyleVersion;
 
-		$s = parent::getHeadScripts();
+		$s = parent::getHeadScripts( $allowUserJs );
 		if ( 3 == $this->qbSetting() ) { # Floating left
 			$s .= "<script language='javascript' type='$wgJsMimeType' " .
-			  "src='{$wgStylePath}/common/sticky.js'></script>\n";
+			  "src='{$wgStylePath}/common/sticky.js?$wgStyleVersion'></script>\n";
 		}
 		return $s;
 	}
@@ -35,14 +33,14 @@ class SkinStandard extends Skin {
 	 *
 	 */
 	function getUserStyles() {
-		global $wgStylePath;
+		global $wgStylePath, $wgStyleVersion;
 		$s = '';
 		if ( 3 == $this->qbSetting() ) { # Floating left
 			$s .= "<style type='text/css'>\n" .
-			  "@import '{$wgStylePath}/common/quickbar.css';\n</style>\n";
-		} else if ( 4 == $this->qbSetting() ) { # Floating right	
+			  "@import '{$wgStylePath}/common/quickbar.css?$wgStyleVersion';\n</style>\n";
+		} else if ( 4 == $this->qbSetting() ) { # Floating right
 			$s .= "<style type='text/css'>\n" .
-			  "@import '{$wgStylePath}/common/quickbar-right.css';\n</style>\n";
+			  "@import '{$wgStylePath}/common/quickbar-right.css?$wgStyleVersion';\n</style>\n";
 		}
 		$s .= parent::getUserStyles();
 		return $s;
@@ -52,7 +50,7 @@ class SkinStandard extends Skin {
 	 *
 	 */
 	function doGetUserStyles() {
-		global $wgUser, $wgOut, $wgStylePath;
+		global $wgStylePath;
 
 		$s = parent::doGetUserStyles();
 		$qb = $this->qbSetting();
@@ -68,7 +66,7 @@ class SkinStandard extends Skin {
 		} else if ( 4 == $qb) {
 			$s .= "#quickbar { border-right: 1px solid gray; }\n" .
 			  "#article { margin-right: 152px; margin-left: 4px; }\n";
-		}	
+		}
 		return $s;
 	}
 
@@ -90,7 +88,7 @@ class SkinStandard extends Skin {
 	}
 
 	function doAfterContent() {
-		global $wgUser, $wgOut, $wgContLang;
+		global $wgContLang;
 		$fname =  'SkinStandard::doAfterContent';
 		wfProfileIn( $fname );
 		wfProfileIn( $fname.'-1' );
@@ -151,7 +149,7 @@ class SkinStandard extends Skin {
 		$s .= "\n" . $this->logoText() . "\n<hr class='sep' />";
 
 		$sep = "\n<br />";
-		
+
 		# Use the first heading from the Monobook sidebar as the "browse" section
 		$bar = $this->buildSidebar();
 		$browseLinks = reset( $bar );
@@ -177,32 +175,42 @@ class SkinStandard extends Skin {
 			} else { # backlink to the article in edit or history mode
 				if($articleExists){ # no backlink if no article
 					switch($tns) {
-						case 0:
-						$text = wfMsg('articlepage');
-						break;
-						case 1:
-						$text = wfMsg('viewtalkpage');
-						break;
-						case 2:
-						$text = wfMsg('userpage');
-						break;
-						case 3:
-						$text = wfMsg('viewtalkpage');
-						break;
-						case 4:
-						$text = wfMsg('wikipediapage');
-						break;
-						case 5:
-						$text = wfMsg('viewtalkpage');
-						break;
-						case 6:
-						$text = wfMsg('imagepage');
-						break;
-						case 7:
-						$text = wfMsg('viewtalkpage');
-						break;
+						case NS_TALK:
+						case NS_USER_TALK:
+						case NS_PROJECT_TALK:
+						case NS_IMAGE_TALK:
+						case NS_MEDIAWIKI_TALK:
+						case NS_TEMPLATE_TALK:
+						case NS_HELP_TALK:
+						case NS_CATEGORY_TALK:
+							$text = wfMsg('viewtalkpage');
+							break;
+						case NS_MAIN:
+							$text = wfMsg( 'articlepage' );
+							break;
+						case NS_USER:
+							$text = wfMsg( 'userpage' );
+							break;
+						case NS_PROJECT:
+							$text = wfMsg( 'projectpage' );
+							break;
+						case NS_IMAGE:
+							$text = wfMsg( 'imagepage' );
+							break;
+						case NS_MEDIAWIKI:
+							$text = wfMsg( 'mediawikipage' );
+							break;
+						case NS_TEMPLATE:
+							$text = wfMsg( 'templatepage' );
+							break;
+						case NS_HELP:
+							$text = wfMsg( 'viewhelppage' );
+							break;
+						case NS_CATEGORY:
+							$text = wfMsg( 'categorypage' );
+							break;
 						default:
-						$text= wfMsg('articlepage');
+							$text= wfMsg( 'articlepage' );
 					}
 
 					$link = $wgTitle->getText();
@@ -219,10 +227,13 @@ class SkinStandard extends Skin {
 
 			}
 
-
-			if( $tns%2 && $action!='edit' && !$wpPreview) {
-				$s.= '<br />'.$this->makeKnownLink($wgTitle->getPrefixedText(),wfMsg('postcomment'),'action=edit&section=new');
-			}
+			# "Post a comment" link
+			if( ( $wgTitle->isTalkPage() || $wgOut->showNewSectionLink() ) && $action != 'edit' && !$wpPreview )
+				$s .= '<br />' . $this->makeKnownLinkObj( $wgTitle, wfMsg( 'postcomment' ), 'action=edit&section=new' );
+			
+			#if( $tns%2 && $action!='edit' && !$wpPreview) {
+				#$s.= '<br />'.$this->makeKnownLink($wgTitle->getPrefixedText(),wfMsg('postcomment'),'action=edit&section=new');
+			#}
 
 			/*
 			watching could cause problems in edit mode:
@@ -235,7 +246,7 @@ class SkinStandard extends Skin {
 				{
 					$s .= $sep . $this->watchThisPage();
 				}
-				if ( $wgTitle->userCanEdit() )
+				if ( $wgTitle->userCan( 'edit' ) )
 					$s .= $sep . $this->moveThisPage();
 			}
 			if ( $wgUser->isAllowed('delete') and $articleExists ) {
@@ -288,4 +299,4 @@ class SkinStandard extends Skin {
 
 }
 
-?>
+

@@ -15,17 +15,15 @@
  *
  * You should have received a copy of the GNU General Public License along
  * with this program; if not, write to the Free Software Foundation, Inc.,
- * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
  *
- * @package MediaWiki
- * @subpackage Maintenance
+ * @addtogroup Maintenance
  */
 
 $optionsWithArgs = array( 'report' );
 
 require_once( 'commandLine.inc' );
-require_once( 'SpecialImport.php' );
 
 class BackupReader {
 	var $reportingInterval = 100;
@@ -48,8 +46,8 @@ class BackupReader {
 			$this->progress( "Got bogus revision with null title!" );
 			return;
 		}
-		$display = $title->getPrefixedText();
-		$timestamp = $rev->getTimestamp();
+		#$timestamp = $rev->getTimestamp();
+		#$display = $title->getPrefixedText();
 		#echo "$display $timestamp\n";
 
 		$this->revCount++;
@@ -70,8 +68,8 @@ class BackupReader {
 		if( $this->reporting ) {
 			$delta = wfTime() - $this->startTime;
 			if( $delta ) {
-				$rate = $this->pageCount / $delta;
-				$revrate = $this->revCount / $delta;
+				$rate = sprintf("%.2f", $this->pageCount / $delta);
+				$revrate = sprintf("%.2f", $this->revCount / $delta);
 			} else {
 				$rate = '-';
 				$revrate = '-';
@@ -112,7 +110,7 @@ class BackupReader {
 }
 
 if( wfReadOnly() ) {
-	die( "Wiki is in read-only mode; you'll need to disable it for import to work.\n" );
+	wfDie( "Wiki is in read-only mode; you'll need to disable it for import to work.\n" );
 }
 
 $reader = new BackupReader();
@@ -136,6 +134,8 @@ if( WikiError::isError( $result ) ) {
 	echo $result->getMessage() . "\n";
 } else {
 	echo "Done!\n";
+	echo "You might want to run rebuildrecentchanges.php to regenerate\n";
+	echo "the recentchanges page.\n";
 }
 
-?>
+

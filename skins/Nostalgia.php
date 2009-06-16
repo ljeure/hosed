@@ -3,23 +3,17 @@
  * See skin.txt
  *
  * @todo document
- * @package MediaWiki
- * @subpackage Skins
+ * @addtogroup Skins
  */
 
 if( !defined( 'MEDIAWIKI' ) )
-	die();
+	die( -1 );
 
 /**
  * @todo document
- * @package MediaWiki
- * @subpackage Skins
+ * @addtogroup Skins
  */
 class SkinNostalgia extends Skin {
-
-	function initPage() {
-		# ...
-	}
 
 	function getStylesheet() {
 		return 'common/nostalgia.css';
@@ -29,7 +23,6 @@ class SkinNostalgia extends Skin {
 	}
 
 	function doBeforeContent() {
-		global $wgUser, $wgOut, $wgTitle;
 
 		$s = "\n<div id='content'>\n<div id='topbar'>";
 		$s .= $this->logoText( "right" );
@@ -47,7 +40,7 @@ class SkinNostalgia extends Skin {
 
 		$ol = $this->otherLanguages();
 		if($ol) $s .= "<br />" . $ol;
-		
+
 		$cat = $this->getCategoryLinks();
 		if($cat) $s .= "<br />" . $cat;
 
@@ -68,11 +61,17 @@ class SkinNostalgia extends Skin {
 			$s .=  $sep . $this->editThisPage()
 			  . $sep . $this->historyLink();
 		}
+		
+		/* show links to different language variants */
+		$s .= $this->variantLinks();
+		$s .= $this->extensionTabLinks();
+		
 		if ( $wgUser->isAnon() ) {
 			$s .= $sep . $this->specialLink( "userlogin" );
 		} else {
 			$s .= $sep . $this->specialLink( "userlogout" );
 		}
+		
 		$s .= $sep . $this->specialPagesList();
 
 		return $s;
@@ -95,4 +94,4 @@ class SkinNostalgia extends Skin {
 	}
 }
 
-?>
+

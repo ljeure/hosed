@@ -2,18 +2,24 @@
 /**
  * This script is used to clear the interwiki links for ALL languages in
  * memcached.
- * @package MediaWiki
- * @subpackage Maintenance
+ * @addtogroup Maintenance
  */
 
 /** */
 require_once('commandLine.inc');
 
+$dbr = wfGetDB( DB_SLAVE );
+$res = $dbr->select( 'interwiki', array( 'iw_prefix' ), false );
+$prefixes = array();
+while ( $row = $dbr->fetchObject( $res ) ) {
+	$prefixes[] = $row->iw_prefix;
+}
+
 foreach ( $wgLocalDatabases as $db ) {
 	print "$db ";
-	foreach ( $wgLanguageNamesEn as $prefix => $name ) {
+	foreach ( $prefixes as $prefix ) {
 		$wgMemc->delete("$db:interwiki:$prefix");
 	}
 }
 print "\n";
-?>
+

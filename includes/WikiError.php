@@ -3,45 +3,44 @@
  * MediaWiki error classes
  * Copyright (C) 2005 Brion Vibber <brion@pobox.com>
  * http://www.mediawiki.org/
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or 
+ * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License along
  * with this program; if not, write to the Free Software Foundation, Inc.,
- * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
  *
- * @package MediaWiki
  */
 
 /**
  * Since PHP4 doesn't have exceptions, here's some error objects
  * loosely modeled on the standard PEAR_Error model...
- * @package MediaWiki
+ * @addtogroup Exception
  */
 class WikiError {
 	/**
 	 * @param string $message
 	 */
-	function WikiError( $message ) {
+	function __construct( $message ) {
 		$this->mMessage = $message;
 	}
-	
+
 	/**
 	 * @return string Plaintext error message to display
 	 */
 	function getMessage() {
 		return $this->mMessage;
 	}
-	
+
 	/**
 	 * In following PEAR_Error model this could be formatted differently,
 	 * but so far it's not.
@@ -50,7 +49,7 @@ class WikiError {
 	function toString() {
 		return $this->getMessage();
 	}
-	
+
 	/**
 	 * Returns true if the given object is a WikiError-descended
 	 * error object, false otherwise.
@@ -59,14 +58,14 @@ class WikiError {
 	 * @return bool
 	 * @static
 	 */
-	function isError( &$object ) {
-		return is_a( $object, 'WikiError' );
+	public static function isError( $object ) {
+		return $object instanceof WikiError;
 	}
 }
 
 /**
  * Localized error message object
- * @package MediaWiki
+ * @addtogroup Exception
  */
 class WikiErrorMsg extends WikiError {
 	/**
@@ -81,8 +80,8 @@ class WikiErrorMsg extends WikiError {
 }
 
 /**
- * @package MediaWiki
  * @todo document
+ * @addtogroup Exception
  */
 class WikiXmlError extends WikiError {
 	/**
@@ -100,7 +99,7 @@ class WikiXmlError extends WikiError {
 		wfDebug( "WikiXmlError: " . $this->getMessage() . "\n" );
 	}
 
-	/** @return string */	
+	/** @return string */
 	function getMessage() {
 		return sprintf( '%s at line %d, col %d (byte %d%s): %s',
 			$this->mMessage,
@@ -110,7 +109,7 @@ class WikiXmlError extends WikiError {
 			$this->mContext,
 			xml_error_string( $this->mXmlError ) );
 	}
-	
+
 	function _extractContext( $context, $offset ) {
 		if( is_null( $context ) ) {
 			return null;
@@ -122,4 +121,4 @@ class WikiXmlError extends WikiError {
 	}
 }
 
-?>
+

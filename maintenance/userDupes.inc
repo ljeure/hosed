@@ -1,20 +1,20 @@
 <?php
 # Copyright (C) 2005 Brion Vibber <brion@pobox.com>
 # http://www.mediawiki.org/
-# 
+#
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or 
+# the Free Software Foundation; either version 2 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
-# 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 # http://www.gnu.org/copyleft/gpl.html
 
 /**
@@ -25,11 +25,11 @@ class UserDupes {
 	var $reassigned;
 	var $trimmed;
 	var $failed;
-	
+
 	function UserDupes( &$database ) {
 		$this->db =& $database;
 	}
-	
+
 	/**
 	 * Check if this database's user table has already had a unique
 	 * user_name index applied.
@@ -42,13 +42,13 @@ class UserDupes {
 			echo "WARNING: doesn't seem to have user_name index at all!\n";
 			return false;
 		}
-		
+
 		# Confusingly, 'Non_unique' is 0 for *unique* indexes,
 		# and 1 for *non-unique* indexes. Pass the crack, MySQL,
 		# it's obviously some good stuff!
-		return ( $info->Non_unique == 0 );
+		return ( $info[0]->Non_unique == 0 );
 	}
-	
+
 	/**
 	 * Checks the database for duplicate user account records
 	 * and remove them in preparation for application of a unique
@@ -63,7 +63,7 @@ class UserDupes {
 	function clearDupes() {
 		return $this->checkDupes( true );
 	}
-	
+
 	/**
 	 * Checks the database for duplicate user account records
 	 * in preparation for application of a unique index on the
@@ -79,31 +79,29 @@ class UserDupes {
 	 * @return bool
 	 */
 	function checkDupes( $doDelete = false ) {
-		global $wgDBname;
-		
 		if( $this->hasUniqueIndex() ) {
-			echo "$wgDBname already has a unique index on its user table.\n";
+			echo wfWikiID()." already has a unique index on its user table.\n";
 			return true;
 		}
-		
+
 		$this->lock();
-		
+
 		echo "Checking for duplicate accounts...\n";
 		$dupes = $this->getDupes();
 		$count = count( $dupes );
-		
-		echo "Found $count accounts with duplicate records on $wgDBname.\n";
+
+		echo "Found $count accounts with duplicate records on ".wfWikiID().".\n";
 		$this->trimmed    = 0;
 		$this->reassigned = 0;
 		$this->failed     = 0;
 		foreach( $dupes as $name ) {
 			$this->examine( $name, $doDelete );
 		}
-		
+
 		$this->unlock();
-		
+
 		echo "\n";
-		
+
 		if( $this->reassigned > 0 ) {
 			if( $doDelete ) {
 				echo "$this->reassigned duplicate accounts had edits reassigned to a canonical record id.\n";
@@ -111,20 +109,20 @@ class UserDupes {
 				echo "$this->reassigned duplicate accounts need to have edits reassigned.\n";
 			}
 		}
-		
+
 		if( $this->trimmed > 0 ) {
 			if( $doDelete ) {
-				echo "$this->trimmed duplicate user records were deleted from $wgDBname.\n";
+				echo "$this->trimmed duplicate user records were deleted from ".wfWikiID().".\n";
 			} else {
-				echo "$this->trimmed duplicate user accounts were found on $wgDBname which can be removed safely.\n";
+				echo "$this->trimmed duplicate user accounts were found on ".wfWikiID()." which can be removed safely.\n";
 			}
 		}
-		
+
 		if( $this->failed > 0 ) {
 			echo "Something terribly awry; $this->failed duplicate accounts were not removed.\n";
 			return false;
 		}
-		
+
 		if( $this->trimmed == 0 || $doDelete ) {
 			echo "It is now safe to apply the unique index on user_name.\n";
 			return true;
@@ -133,7 +131,7 @@ class UserDupes {
 			return false;
 		}
 	}
-	
+
 	/**
 	 * We don't want anybody to mess with our stuff...
 	 * @access private
@@ -147,14 +145,14 @@ class UserDupes {
 		}
 		$names = array_map( array( $this, 'lockTable' ), $set );
 		$tables = implode( ',', $names );
-		
-		$result = $this->db->query( "LOCK TABLES $tables", $fname );
+
+		$this->db->query( "LOCK TABLES $tables", $fname );
 	}
-	
+
 	function lockTable( $table ) {
 		return $this->db->tableName( $table ) . ' WRITE';
 	}
-	
+
 	/**
 	 * @return bool
 	 * @access private
@@ -162,15 +160,15 @@ class UserDupes {
 	function newSchema() {
 		return class_exists( 'Revision' );
 	}
-	
+
 	/**
 	 * @access private
 	 */
 	function unlock() {
 		$fname = 'UserDupes::unlock';
-		$result = $this->db->query( "UNLOCK TABLES", $fname );
+		$this->db->query( "UNLOCK TABLES", $fname );
 	}
-	
+
 	/**
 	 * Grab usernames for which multiple records are present in the database.
 	 * @return array
@@ -184,16 +182,16 @@ class UserDupes {
 			    FROM $user
 			GROUP BY user_name
 			  HAVING n > 1", $fname );
-		
+
 		$list = array();
 		while( $row = $this->db->fetchObject( $result ) ) {
 			$list[] = $row->user_name;
 		}
 		$this->db->freeResult( $result );
-		
+
 		return $list;
 	}
-	
+
 	/**
 	 * Examine user records for the given name. Try to see which record
 	 * will be the one that actually gets used, then check remaining records
@@ -208,11 +206,11 @@ class UserDupes {
 			array( 'user_id' ),
 			array( 'user_name' => $name ),
 			$fname );
-		
+
 		$firstRow = $this->db->fetchObject( $result );
 		$firstId  = $firstRow->user_id;
 		echo "Record that will be used for '$name' is user_id=$firstId\n";
-		
+
 		while( $row = $this->db->fetchObject( $result ) ) {
 			$dupeId = $row->user_id;
 			echo "... dupe id $dupeId: ";
@@ -244,7 +242,7 @@ class UserDupes {
 		}
 		$this->db->freeResult( $result );
 	}
-	
+
 	/**
 	 * Count the number of edits attributed to this user.
 	 * Does not currently check log table or other things
@@ -261,7 +259,7 @@ class UserDupes {
 				$this->editCountOn( 'old', 'old_user', $userid );
 		}
 	}
-	
+
 	/**
 	 * Count the number of hits on a given table for this account.
 	 * @param string $table
@@ -272,13 +270,13 @@ class UserDupes {
 	 */
 	function editCountOn( $table, $field, $userid ) {
 		$fname = 'UserDupes::editCountOn';
-		return IntVal( $this->db->selectField(
+		return intval( $this->db->selectField(
 			$table,
 			'COUNT(*)',
 			array( $field => $userid ),
 			$fname ) );
 	}
-	
+
 	/**
 	 * @param int $from
 	 * @param int $to
@@ -292,7 +290,7 @@ class UserDupes {
 			$this->reassignEditsOn( $table, $field, $from, $to );
 		}
 	}
-	
+
 	/**
 	 * @param string $table
 	 * @param string $field
@@ -303,13 +301,13 @@ class UserDupes {
 	function reassignEditsOn( $table, $field, $from, $to ) {
 		$fname = 'UserDupes::reassignEditsOn';
 		echo "reassigning on $table... ";
-		$result = $this->db->update( $table,
+		$this->db->update( $table,
 			array( $field => $to ),
 			array( $field => $from ),
 			$fname );
 		echo "ok. ";
 	}
-	
+
 	/**
 	 * Remove a user account line.
 	 * @param int $userid
@@ -321,7 +319,7 @@ class UserDupes {
 		$this->db->delete( 'user', array( 'user_id' => $userid ), $fname );
 		echo " ok";
 	}
-	
+
 }
 
 

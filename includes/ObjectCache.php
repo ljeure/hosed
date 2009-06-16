@@ -1,20 +1,14 @@
 <?php
 /**
- * @package MediaWiki
- * @subpackage Cache
+ * @addtogroup Cache
  */
-
-/** */
-if (!defined('MEDIAWIKI')) die( "Not a valid entry point\n");
-
 
 /**
  * FakeMemCachedClient imitates the API of memcached-client v. 0.1.2.
  * It acts as a memcached server with no RAM, that is, all objects are
  * cleared the moment they are set. All set operations succeed and all
  * get operations return null.
- * @package MediaWiki
- * @subpackage Cache
+ * @addtogroup Cache
  */
 class FakeMemCachedClient {
 	function add ($key, $val, $exp = 0) { return true; }
@@ -39,7 +33,7 @@ $wgCaches = array();
 
 /** @todo document */
 function &wfGetCache( $inputType ) {
-	global $wgCaches, $wgMemCachedServers, $wgMemCachedDebug;
+	global $wgCaches, $wgMemCachedServers, $wgMemCachedDebug, $wgMemCachedPersistent;
 	$cache = false;
 
 	if ( $inputType == CACHE_ANYTHING ) {
@@ -53,9 +47,9 @@ function &wfGetCache( $inputType ) {
 	}
 
 	if ( $type == CACHE_MEMCACHED ) {
-		if ( !array_key_exists( CACHE_MEMCACHED, $wgCaches ) ){ 
+		if ( !array_key_exists( CACHE_MEMCACHED, $wgCaches ) ){
 			require_once( 'memcached-client.php' );
-			
+
 			if (!class_exists("MemcachedClientforWiki")) {
 				class MemCachedClientforWiki extends memcached {
 					function _debugprint( $text ) {
@@ -64,8 +58,8 @@ function &wfGetCache( $inputType ) {
 				}
 			}
 
-			$wgCaches[CACHE_DB] = new MemCachedClientforWiki( 
-				array('persistant' => false, 'compress_threshold' => 1500 ) );
+			$wgCaches[CACHE_DB] = new MemCachedClientforWiki(
+				array('persistant' => $wgMemCachedPersistent, 'compress_threshold' => 1500 ) );
 			$cache =& $wgCaches[CACHE_DB];
 			$cache->set_servers( $wgMemCachedServers );
 			$cache->set_debug( $wgMemCachedDebug );
@@ -73,10 +67,12 @@ function &wfGetCache( $inputType ) {
 	} elseif ( $type == CACHE_ACCEL ) {
 		if ( !array_key_exists( CACHE_ACCEL, $wgCaches ) ) {
 			if ( function_exists( 'eaccelerator_get' ) ) {
-				require_once( 'BagOStuff.php' );
 				$wgCaches[CACHE_ACCEL] = new eAccelBagOStuff;
+			} elseif ( function_exists( 'apc_fetch') ) {
+				$wgCaches[CACHE_ACCEL] = new APCBagOStuff;
+			} elseif( function_exists( 'xcache_get' ) ) {
+				$wgCaches[CACHE_ACCEL] = new XCacheBagOStuff();
 			} elseif ( function_exists( 'mmcache_get' ) ) {
-				require_once( 'BagOStuff.php' );
 				$wgCaches[CACHE_ACCEL] = new TurckBagOStuff;
 			} else {
 				$wgCaches[CACHE_ACCEL] = false;
@@ -85,16 +81,20 @@ function &wfGetCache( $inputType ) {
 		if ( $wgCaches[CACHE_ACCEL] !== false ) {
 			$cache =& $wgCaches[CACHE_ACCEL];
 		}
+	} elseif ( $type == CACHE_DBA ) {
+		if ( !array_key_exists( CACHE_DBA, $wgCaches ) ) {
+			$wgCaches[CACHE_DBA] = new DBABagOStuff;
+		}
+		$cache =& $wgCaches[CACHE_DBA];
 	}
-
+	
 	if ( $type == CACHE_DB || ( $inputType == CACHE_ANYTHING && $cache === false ) ) {
 		if ( !array_key_exists( CACHE_DB, $wgCaches ) ) {
-			require_once( 'BagOStuff.php' );
 			$wgCaches[CACHE_DB] = new MediaWikiBagOStuff('objectcache');
 		}
 		$cache =& $wgCaches[CACHE_DB];
 	}
-	
+
 	if ( $cache === false ) {
 		if ( !array_key_exists( CACHE_NONE, $wgCaches ) ) {
 			$wgCaches[CACHE_NONE] = new FakeMemCachedClient;
@@ -123,4 +123,4 @@ function &wfGetParserCacheStorage() {
 	return $ret;
 }
 
-?>
+

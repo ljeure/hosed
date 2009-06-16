@@ -6,9 +6,8 @@
  * Hack for bugs in ucfirst() and company
  *
  * These are pulled from memcached if possible, as this is faster than filling
- * up a big array manually. See also languages/LanguageUtf8.php
- * @package MediaWiki
- * @subpackage Language
+ * up a big array manually.
+ * @addtogroup Language
  */
 
 /*
@@ -1503,4 +1502,4 @@ $wikiLowerChars = array (
 	"\xf0\x90\x90\xa5" => "\xf0\x90\x91\x8d"
 );
 
-?>
+

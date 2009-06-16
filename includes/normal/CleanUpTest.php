@@ -1,31 +1,22 @@
 <?php
 # Copyright (C) 2004 Brion Vibber <brion@pobox.com>
 # http://www.mediawiki.org/
-# 
+#
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or 
+# the Free Software Foundation; either version 2 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
-# 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 # http://www.gnu.org/copyleft/gpl.html
 
-/**
- * Additional tests for UtfNormal::cleanUp() function, inclusion
- * regression checks for known problems.
- *
- * Requires PHPUnit.
- * 
- * @package UtfNormal
- * @access private
- */
 
 if( php_sapi_name() != 'cli' ) {
 	die( "Run me from the command line please.\n" );
@@ -38,20 +29,20 @@ if( isset( $_SERVER['argv'] ) && in_array( '--icu', $_SERVER['argv'] ) ) {
 
 #ini_set( 'memory_limit', '40M' );
 
-require_once( 'PHPUnit.php' );
-require_once( 'UtfNormal.php' );
+require_once 'PHPUnit/Framework.php';
+require_once 'PHPUnit/TextUI/TestRunner.php';
+
+require_once 'UtfNormal.php';
 
 /**
- * @package UtfNormal
+ * Additional tests for UtfNormal::cleanUp() function, inclusion
+ * regression checks for known problems.
+ * Requires PHPUnit.
+ *
+ * @addtogroup UtfNormal
+ * @private
  */
-class CleanUpTest extends PHPUnit_TestCase {
-	/**
-	 * @param string $name ???
-	 */
-	function CleanUpTest( $name ) {
-		$this->PHPUnit_TestCase( $name );
-	}
-
+class CleanUpTest extends PHPUnit_Framework_TestCase {
 	/** @todo document */
 	function setUp() {
 	}
@@ -114,7 +105,7 @@ class CleanUpTest extends PHPUnit_TestCase {
 						"U+$x should be decomposed" );
 				} else {
 					$this->assertEquals(
-						bin2hex( $char ), 
+						bin2hex( $char ),
 						bin2hex( $clean ),
 						"U+$x should be intact" );
 				}
@@ -143,7 +134,7 @@ class CleanUpTest extends PHPUnit_TestCase {
 			    $i == 0x000d ||
 			    ($i > 0x001f && $i < 0x80) ) {
 				$this->assertEquals(
-					bin2hex( $char ), 
+					bin2hex( $char ),
 					bin2hex( $clean ),
 					"ASCII byte $x should be intact" );
 				if( $char != $clean ) return;
@@ -180,7 +171,7 @@ class CleanUpTest extends PHPUnit_TestCase {
 				    $second < 0xc0 ) {
 				    $norm = UtfNormal::NFC( $char );
 					$this->assertEquals(
-						bin2hex( $norm ), 
+						bin2hex( $norm ),
 						bin2hex( $clean ),
 						"Pair $x should be intact" );
 				    if( $norm != $clean ) return;
@@ -227,18 +218,18 @@ class CleanUpTest extends PHPUnit_TestCase {
 						$third < 0xc0 ) {
 						if( $first == 0xe0 && $second < 0xa0 ) {
 							$this->assertEquals(
-								bin2hex( $head . UTF8_REPLACEMENT . $tail ), 
+								bin2hex( $head . UTF8_REPLACEMENT . $tail ),
 								bin2hex( $clean ),
 								"Overlong triplet $x should be rejected" );
-						} elseif( $first == 0xed && 
+						} elseif( $first == 0xed &&
 							( chr( $first ) . chr( $second ) . chr( $third ))  >= UTF8_SURROGATE_FIRST ) {
 							$this->assertEquals(
-								bin2hex( $head . UTF8_REPLACEMENT . $tail ), 
+								bin2hex( $head . UTF8_REPLACEMENT . $tail ),
 								bin2hex( $clean ),
 								"Surrogate triplet $x should be rejected" );
 						} else {
 							$this->assertEquals(
-								bin2hex( UtfNormal::NFC( $char ) ), 
+								bin2hex( UtfNormal::NFC( $char ) ),
 								bin2hex( $clean ),
 								"Triplet $x should be intact" );
 						}
@@ -278,18 +269,18 @@ class CleanUpTest extends PHPUnit_TestCase {
 		}
 	}
 
-	/** @todo document */	
+	/** @todo document */
 	function testChunkRegression() {
 		# Check for regression against a chunking bug
 		$text   = "\x46\x55\xb8" .
-		          "\xdc\x96" . 
+		          "\xdc\x96" .
 		          "\xee" .
 		          "\xe7" .
 		          "\x44" .
 		          "\xaa" .
 		          "\x2f\x25";
 		$expect = "\x46\x55\xef\xbf\xbd" .
-		          "\xdc\x96" . 
+		          "\xdc\x96" .
 		          "\xef\xbf\xbd" .
 		          "\xef\xbf\xbd" .
 		          "\x44" .
@@ -316,7 +307,7 @@ class CleanUpTest extends PHPUnit_TestCase {
 		          "\xad" .		# bad tail
 		          "\x7d" .
 		          "\xd9\x95";
-	
+
 		$expect = "\x4e\x30" .
 		          "\xef\xbf\xbd" .
 		          "\x3a" .
@@ -330,13 +321,13 @@ class CleanUpTest extends PHPUnit_TestCase {
 		          "\xef\xbf\xbd" .
 		          "\x7d" .
 		          "\xd9\x95";
-		
+
 		$this->assertEquals(
 			bin2hex( $expect ),
 			bin2hex( UtfNormal::cleanUp( $text ) ) );
 	}
 
-	/** @todo document */	
+	/** @todo document */
 	function testOverlongRegression() {
 		$text   = "\x67" .
 		          "\x1a" . # forbidden ascii
@@ -361,7 +352,7 @@ class CleanUpTest extends PHPUnit_TestCase {
 			bin2hex( UtfNormal::cleanUp( $text ) ) );
 	}
 
-	/** @todo document */	
+	/** @todo document */
 	function testSurrogateRegression() {
 		$text   = "\xed\xb4\x96" . # surrogate 0xDD16
 		          "\x83" . # bad tail
@@ -412,12 +403,11 @@ class CleanUpTest extends PHPUnit_TestCase {
 }
 
 
-$suite =& new PHPUnit_TestSuite( 'CleanUpTest' );
-$result = PHPUnit::run( $suite );
-echo $result->toString();
+$suite = new PHPUnit_Framework_TestSuite( 'CleanUpTest' );
+$result = PHPUnit_TextUI_TestRunner::run( $suite );
 
 if( !$result->wasSuccessful() ) {
 	exit( -1 );
 }
 exit( 0 );
-?>
+

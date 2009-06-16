@@ -1,17 +1,12 @@
 <?php
 /**
  *
- * @package MediaWiki
- * @subpackage SpecialPage
+ * @addtogroup SpecialPage
  */
-
-/** */
-require_once('QueryPage.php');
 
 /**
  *
- * @package MediaWiki
- * @subpackage SpecialPage
+ * @addtogroup SpecialPage
  */
 class UnusedCategoriesPage extends QueryPage {
 
@@ -20,15 +15,15 @@ class UnusedCategoriesPage extends QueryPage {
 	}
 
 	function getPageHeader() {
-		return '<p>' . wfMsg('unusedcategoriestext') . '</p>';
+		return wfMsgExt( 'unusedcategoriestext', array( 'parse' ) );
 	}
 
 	function getSQL() {
 		$NScat = NS_CATEGORY;
-		$dbr =& wfGetDB( DB_SLAVE );
-		extract( $dbr->tableNames( 'categorylinks','page' ));
+		$dbr = wfGetDB( DB_SLAVE );
+		list( $categorylinks, $page ) = $dbr->tableNamesN( 'categorylinks', 'page' );
 		return "SELECT 'Unusedcategories' as type,
-				{$NScat} as namespace, page_title as title, 1 as value
+				{$NScat} as namespace, page_title as title, page_title as value
 				FROM $page
 				LEFT JOIN $categorylinks ON page_title=cl_to
 				WHERE cl_from IS NULL
@@ -37,7 +32,6 @@ class UnusedCategoriesPage extends QueryPage {
 	}
 
 	function formatResult( $skin, $result ) {
-		global $wgLang;
 		$title = Title::makeTitle( NS_CATEGORY, $result->title );
 		return $skin->makeLinkObj( $title, $title->getText() );
 	}
@@ -49,4 +43,4 @@ function wfSpecialUnusedCategories() {
 	$uc = new UnusedCategoriesPage();
 	return $uc->doQuery( $offset, $limit );
 }
-?>
+

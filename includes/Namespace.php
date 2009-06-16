@@ -1,15 +1,8 @@
 <?php
 /**
  * Provide things related to namespaces
- * @package MediaWiki
  */
- 
-/**
- * This is not a valid entry point, perform no further processing unless MEDIAWIKI is defined
- */
-if( defined( 'MEDIAWIKI' ) ) {
 
- 
 /**
  * Definitions of the NS_ constants are in Defines.php
  * @private
@@ -17,7 +10,7 @@ if( defined( 'MEDIAWIKI' ) ) {
 $wgCanonicalNamespaceNames = array(
 	NS_MEDIA            => 'Media',
 	NS_SPECIAL          => 'Special',
-	NS_TALK	            => 'Talk',
+	NS_TALK             => 'Talk',
 	NS_USER             => 'User',
 	NS_USER_TALK        => 'User_talk',
 	NS_PROJECT          => 'Project',
@@ -30,7 +23,7 @@ $wgCanonicalNamespaceNames = array(
 	NS_TEMPLATE_TALK    => 'Template_talk',
 	NS_HELP             => 'Help',
 	NS_HELP_TALK        => 'Help_talk',
-	NS_CATEGORY	    => 'Category',
+	NS_CATEGORY         => 'Category',
 	NS_CATEGORY_TALK    => 'Category_talk',
 );
 
@@ -47,60 +40,71 @@ if( is_array( $wgExtraNamespaces ) ) {
  * These are synonyms for the names given in the language file
  * Users and translators should not change them
  *
- * @package MediaWiki
  */
 class Namespace {
 
 	/**
-	 * Check if the given namespace might be moved
+	 * Can pages in the given namespace be moved?
+	 *
+	 * @param int $index Namespace index
 	 * @return bool
 	 */
-	function isMovable( $index ) {
-		if ( $index < NS_MAIN || $index == NS_IMAGE  || $index == NS_CATEGORY ) { 
-			return false; 
-		}
-		return true;
+	public static function isMovable( $index ) {
+		return !( $index < NS_MAIN || $index == NS_IMAGE  || $index == NS_CATEGORY );
 	}
 
 	/**
-	 * Check if the give namespace is a talk page
+	 * Is the given namespace is a subject (non-talk) namespace?
+	 *
+	 * @param int $index Namespace index
 	 * @return bool
 	 */
-	function isTalk( $index ) {
-		global $wgExtraNamespaces;
-		return ( $index == NS_TALK           || $index == NS_USER_TALK     ||
-				 $index == NS_PROJECT_TALK   || $index == NS_IMAGE_TALK    ||
-				 $index == NS_MEDIAWIKI_TALK || $index == NS_TEMPLATE_TALK ||
-				 $index == NS_HELP_TALK      || $index == NS_CATEGORY_TALK 
-				 ||  ( (isset($wgExtraNamespaces) && $index % 2) )
-				 );
-		
+	public static function isMain( $index ) {
+		return !self::isTalk( $index );
 	}
 
 	/**
-	 * Get the talk namespace corresponding to the given index
+	 * Is the given namespace a talk namespace?
+	 *
+	 * @param int $index Namespace index
+	 * @return bool
 	 */
-	function getTalk( $index ) {
-		if ( Namespace::isTalk( $index ) ) {
-			return $index;
-		} else {
-			# FIXME
-			return $index + 1;
-		}
+	public static function isTalk( $index ) {
+		return $index > NS_MAIN
+			&& $index % 2;
 	}
 
-	function getSubject( $index ) {
-		if ( Namespace::isTalk( $index ) ) {
-			return $index - 1;
-		} else {
-			return $index;
-		}
+	/**
+	 * Get the talk namespace index for a given namespace
+	 *
+	 * @param int $index Namespace index
+	 * @return int
+	 */
+	public static function getTalk( $index ) {
+		return self::isTalk( $index )
+			? $index
+			: $index + 1;
+	}
+
+	/**
+	 * Get the subject namespace index for a given namespace
+	 *
+	 * @param int $index Namespace index
+	 * @return int
+	 */
+	public static function getSubject( $index ) {
+		return self::isTalk( $index )
+			? $index - 1
+			: $index;
 	}
 
 	/**
 	 * Returns the canonical (English Wikipedia) name for a given index
+	 *
+	 * @param int $index Namespace index
+	 * @return string
 	 */
-	function getCanonicalName( $index ) {
+	public static function getCanonicalName( $index ) {
 		global $wgCanonicalNamespaceNames;
 		return $wgCanonicalNamespaceNames[$index];
 	}
@@ -108,8 +112,11 @@ class Namespace {
 	/**
 	 * Returns the index for a given canonical name, or NULL
 	 * The input *must* be converted to lower case first
+	 *
+	 * @param string $name Namespace name
+	 * @return int
 	 */
-	function getCanonicalIndex( $name ) {
+	public static function getCanonicalIndex( $name ) {
 		global $wgCanonicalNamespaceNames;
 		static $xNamespaces = false;
 		if ( $xNamespaces === false ) {
@@ -124,7 +131,37 @@ class Namespace {
 			return NULL;
 		}
 	}
+	
+	/**
+	 * Can this namespace ever have a talk namespace?
+	 *
+	 * @param $index Namespace index
+	 * @return bool
+	 */
+	 public static function canTalk( $index ) {
+	 	return $index >= NS_MAIN;
+	 }
+	 
+	/**
+	 * Does this namespace contain content, for the purposes
+	 * of calculating statistics, etc?
+	 *
+	 * @param $index Index to check
+	 * @return bool
+	 */
+	public static function isContent( $index ) {
+		global $wgContentNamespaces;
+		return $index == NS_MAIN || in_array( $index, $wgContentNamespaces );
+	}
+	
+	/**
+	 * Can pages in a namespace be watched?
+	 *
+	 * @param int $index
+	 * @return bool
+	 */
+	public static function isWatchable( $index ) {
+		return $index >= NS_MAIN;
+	}
+	 
 }
-
-}
-?>
