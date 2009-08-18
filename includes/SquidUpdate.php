@@ -1,17 +1,15 @@
 <?php
 /**
  * See deferred.txt
- * @package MediaWiki
  */
 
 /**
  *
- * @package MediaWiki
  */
 class SquidUpdate {
 	var $urlArr, $mMaxTitles;
 
-	function SquidUpdate( $urlArr = Array(), $maxTitles = false ) {
+	function __construct( $urlArr = Array(), $maxTitles = false ) {
 		global $wgMaxSquidPurgeTitles;
 		if ( $maxTitles === false ) {
 			$this->mMaxTitles = $wgMaxSquidPurgeTitles;
@@ -24,17 +22,12 @@ class SquidUpdate {
 		$this->urlArr = $urlArr;
 	}
 
-	/* static */ function newFromLinksTo( &$title ) {
+	static function newFromLinksTo( &$title ) {
 		$fname = 'SquidUpdate::newFromLinksTo';
 		wfProfileIn( $fname );
 
 		# Get a list of URLs linking to this page
-		$id = $title->getArticleID();
-
-		$dbr =& wfGetDB( DB_SLAVE );
-		$links = $dbr->tableName( 'links' );
-		$page = $dbr->tableName( 'page' );
-
+		$dbr = wfGetDB( DB_SLAVE );
 		$res = $dbr->select( array( 'links', 'page' ),
 			array( 'page_namespace', 'page_title' ),
 			array(
@@ -46,7 +39,7 @@ class SquidUpdate {
 		if ( $dbr->numRows( $res ) <= $this->mMaxTitles ) {
 			while ( $BL = $dbr->fetchObject ( $res ) )
 			{
-				$tobj = Title::makeTitle( $BL->page_namespace, $BL->page_title ) ; 
+				$tobj = Title::makeTitle( $BL->page_namespace, $BL->page_title ) ;
 				$blurlArr[] = $tobj->getInternalURL();
 			}
 		}
@@ -56,16 +49,20 @@ class SquidUpdate {
 		return new SquidUpdate( $blurlArr );
 	}
 
-	/* static */ function newFromTitles( &$titles, $urlArr = array() ) {
+	static function newFromTitles( &$titles, $urlArr = array() ) {
+		global $wgMaxSquidPurgeTitles;
+		if ( count( $titles ) > $wgMaxSquidPurgeTitles ) {
+			$titles = array_slice( $titles, 0, $wgMaxSquidPurgeTitles );
+		}
 		foreach ( $titles as $title ) {
 			$urlArr[] = $title->getInternalURL();
 		}
 		return new SquidUpdate( $urlArr );
 	}
 
-	/* static */ function newSimplePurge( &$title ) {
+	static function newSimplePurge( &$title ) {
 		$urlArr = $title->getSquidURLs();
-		return new SquidUpdate( $blurlArr );
+		return new SquidUpdate( $urlArr );
 	}
 
 	function doUpdate() {
@@ -73,27 +70,32 @@ class SquidUpdate {
 	}
 
 	/* Purges a list of Squids defined in $wgSquidServers.
-	$urlArr should contain the full URLs to purge as values 
+	$urlArr should contain the full URLs to purge as values
 	(example: $urlArr[] = 'http://my.host/something')
 	XXX report broken Squids per mail or log */
 
-	/* static */ function purge( $urlArr ) {
+	static function purge( $urlArr ) {
 		global $wgSquidServers, $wgHTCPMulticastAddress, $wgHTCPPort;
 
-		if ( $wgSquidServers == 'echo' ) {
-			echo implode("<br />\n", $urlArr);
+		/*if ( (@$wgSquidServers[0]) == 'echo' ) {
+			echo implode("<br />\n", $urlArr) . "<br />\n";
+			return;
+		}*/
+		
+		if( empty( $urlArr ) ) {
 			return;
 		}
 
-		if ( $wgHTCPMulticastAddress && $wgHTCPPort )
-			SquidUpdate::HTCPPurge( $urlArr );
+		if ( $wgHTCPMulticastAddress && $wgHTCPPort ) {
+			return SquidUpdate::HTCPPurge( $urlArr );
+		}
 
 		$fname = 'SquidUpdate::purge';
 		wfProfileIn( $fname );
-		
+
 		$maxsocketspersquid = 8; //  socket cap per Squid
 		$urlspersocket = 400; // 400 seems to be a good tradeoff, opening a socket takes a while
-		$firsturl = $urlArr[0];
+		$firsturl = SquidUpdate::expand( $urlArr[0] );
 		unset($urlArr[0]);
 		$urlArr = array_values($urlArr);
 		$sockspersq =  max(ceil(count($urlArr) / $urlspersocket ),1);
@@ -117,6 +119,7 @@ class SquidUpdate {
 					@list($server, $port) = explode(':', $wgSquidServers[$ss]);
 					if(!isset($port)) $port = 80;
 					#$this->debug("Opening socket to $server:$port");
+					$error = $errstr = false;
 					$socket = @fsockopen($server, $port, $error, $errstr, 3);
 					#$this->debug("\n");
 					if (!$socket) {
@@ -130,7 +133,7 @@ class SquidUpdate {
 						#$this->debug("...");
 						$res = @fread($socket,512);
 						#$this->debug("\n");
-						/* Squid only returns http headers with 200 or 404 status, 
+						/* Squid only returns http headers with 200 or 404 status,
 						if there's more returned something's wrong */
 						if (strlen($res) > 250) {
 							fclose($socket);
@@ -140,13 +143,13 @@ class SquidUpdate {
 							@stream_set_blocking($socket,false);
 							$sockets[] = $socket;
 						}
-					} 
+					}
 				} else {
 					/* open the remaining sockets for this server */
 					list($server, $port) = explode(':', $wgSquidServers[$ss]);
 					if(!isset($port)) $port = 80;
-					$sockets[] = @fsockopen($server, $port, $error, $errstr, 2);
-					@stream_set_blocking($sockets[$s],false);
+					$sockets[$so+1] = @fsockopen($server, $port, $error, $errstr, 2);
+					@stream_set_blocking($sockets[$so+1],false);
 				}
 				$so++;
 			}
@@ -166,7 +169,8 @@ class SquidUpdate {
 						}
 					}
 					$urindex = $r + $urlspersocket * ($s - $sockspersq * floor($s / $sockspersq));
-					$msg = 'PURGE ' . $urlArr[$urindex] . " HTTP/1.0\r\n".
+					$url = SquidUpdate::expand( $urlArr[$urindex] );
+					$msg = 'PURGE ' . $url . " HTTP/1.0\r\n".
 					"Connection: Keep-Alive\r\n\r\n";
 					#$this->debug($msg);
 					@fputs($sockets[$s],$msg);
@@ -190,7 +194,7 @@ class SquidUpdate {
 		wfProfileOut( $fname );
 	}
 
-	/* static */ function HTCPPurge( $urlArr ) {
+	static function HTCPPurge( $urlArr ) {
 		global $wgHTCPMulticastAddress, $wgHTCPMulticastTTL, $wgHTCPPort;
 		$fname = 'SquidUpdate::HTCPPurge';
 		wfProfileIn( $fname );
@@ -198,9 +202,11 @@ class SquidUpdate {
 		$htcpOpCLR = 4;                 // HTCP CLR
 
 		// FIXME PHP doesn't support these socket constants (include/linux/in.h)
-		define( "IPPROTO_IP", 0 );
-		define( "IP_MULTICAST_LOOP", 34 );
-		define( "IP_MULTICAST_TTL", 33 );
+		if( !defined( "IPPROTO_IP" ) ) {
+			define( "IPPROTO_IP", 0 );
+			define( "IP_MULTICAST_LOOP", 34 );
+			define( "IP_MULTICAST_TTL", 33 );
+		}
 
 		// pfsockopen doesn't work because we need set_sock_opt
 	        $conn = socket_create( AF_INET, SOCK_DGRAM, SOL_UDP );
@@ -212,13 +218,18 @@ class SquidUpdate {
 					$wgHTCPMulticastTTL );
 
 			foreach ( $urlArr as $url ) {
+				if( !is_string( $url ) ) {
+					wfDebugDieBacktrace( 'Bad purge URL' );
+				}
+				$url = SquidUpdate::expand( $url );
+				
 				// Construct a minimal HTCP request diagram
 				// as per RFC 2756
 				// Opcode 'CLR', no response desired, no auth
 				$htcpTransID = rand();
 
 				$htcpSpecifier = pack( 'na4na*na8n',
-					4, 'NONE', strlen( $url ), $url,
+					4, 'HEAD', strlen( $url ), $url,
 					8, 'HTTP/1.0', 0 );
 
 				$htcpDataLen = 8 + 2 + strlen( $htcpSpecifier );
@@ -249,5 +260,26 @@ class SquidUpdate {
 			wfDebug( $text );
 		}
 	}
+	
+	/**
+	 * Expand local URLs to fully-qualified URLs using the internal protocol
+	 * and host defined in $wgInternalServer. Input that's already fully-
+	 * qualified will be passed through unchanged.
+	 *
+	 * This is used to generate purge URLs that may be either local to the
+	 * main wiki or include a non-native host, such as images hosted on a
+	 * second internal server.
+	 *
+	 * Client functions should not need to call this.
+	 *
+	 * @return string
+	 */
+	static function expand( $url ) {
+		global $wgInternalServer;
+		if( $url != '' && $url{0} == '/' ) {
+			return $wgInternalServer . $url;
+		}
+		return $url;
+	}
 }
-?>
+

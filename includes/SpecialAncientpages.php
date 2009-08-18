@@ -1,19 +1,12 @@
 <?php
 /**
  *
- * @package MediaWiki
- * @subpackage SpecialPage
+ * @addtogroup SpecialPage
  */
 
 /**
- *
- */
-require_once( 'QueryPage.php' );
-
-/**
- *
- * @package MediaWiki
- * @subpackage SpecialPage
+ * Implements Special:Ancientpages
+ * @addtogroup SpecialPage
  */
 class AncientPagesPage extends QueryPage {
 
@@ -24,24 +17,27 @@ class AncientPagesPage extends QueryPage {
 	function isExpensive() {
 		return true;
 	}
-	
+
 	function isSyndicated() { return false; }
 
 	function getSQL() {
-		$db =& wfGetDB( DB_SLAVE );
+		global $wgDBtype;
+		$db = wfGetDB( DB_SLAVE );
 		$page = $db->tableName( 'page' );
 		$revision = $db->tableName( 'revision' );
 		#$use_index = $db->useIndexClause( 'cur_timestamp' ); # FIXME! this is gone
+		$epoch = $wgDBtype == 'mysql' ? 'UNIX_TIMESTAMP(rev_timestamp)' :
+			'EXTRACT(epoch FROM rev_timestamp)';
 		return
 			"SELECT 'Ancientpages' as type,
 					page_namespace as namespace,
 			        page_title as title,
-			        UNIX_TIMESTAMP(rev_timestamp) as value
+			        $epoch as value
 			FROM $page, $revision
 			WHERE page_namespace=".NS_MAIN." AND page_is_redirect=0
 			  AND page_latest=rev_id";
 	}
-	
+
 	function sortDescending() {
 		return false;
 	}
@@ -51,8 +47,8 @@ class AncientPagesPage extends QueryPage {
 
 		$d = $wgLang->timeanddate( wfTimestamp( TS_MW, $result->value ), true );
 		$title = Title::makeTitle( $result->namespace, $result->title );
-		$link = $skin->makeKnownLinkObj( $title, $wgContLang->convert( $title->getPrefixedText() ) );
-		return "{$link} ({$d})";
+		$link = $skin->makeKnownLinkObj( $title, htmlspecialchars( $wgContLang->convert( $title->getPrefixedText() ) ) );
+		return wfSpecialList($link, $d);
 	}
 }
 
@@ -64,4 +60,4 @@ function wfSpecialAncientpages() {
 	$app->doQuery( $offset, $limit );
 }
 
-?>
+

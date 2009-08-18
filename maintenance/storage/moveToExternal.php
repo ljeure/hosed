@@ -1,80 +1,113 @@
 <?php
 
-define( 'REPORTING_INTERVAL', 100 );
-define( 'STUB_HEADER', 'O:15:"historyblobstub"' );
+define( 'REPORTING_INTERVAL', 1 );
 
 if ( !defined( 'MEDIAWIKI' ) ) {
-	$optionsWithArgs = array( 'm' );
+	$optionsWithArgs = array( 'm', 's' );
 
-	require_once( '../commandLine.inc' );
+	require_once( dirname(__FILE__) . '/../commandLine.inc' );
 	require_once( 'ExternalStoreDB.php' );
 	require_once( 'resolveStubs.php' );
 
 	$fname = 'moveToExternal';
 
 	if ( !isset( $args[0] ) ) {
-		print "Usage: php moveToExternal.php [-m <maxid>] <cluster>\n";
+		print "Usage: php moveToExternal.php [-s <startid>] [-e <endid>] <cluster>\n";
 		exit;
 	}
 
 	$cluster = $args[0];
-	$dbw =& wfGetDB( DB_MASTER );
+	$dbw = wfGetDB( DB_MASTER );
 
-	if ( isset( $options['m'] ) ) {
-		$maxID = $options['m'];
+	if ( isset( $options['e'] ) ) {
+		$maxID = $options['e'];
 	} else {
 		$maxID = $dbw->selectField( 'text', 'MAX(old_id)', false, $fname );
 	}
+	$minID = isset( $options['s'] ) ? $options['s'] : 1;
 
-	moveToExternal( $cluster, $maxID );
+	moveToExternal( $cluster, $maxID, $minID );
 }
 
 
 
-function moveToExternal( $cluster, $maxID ) {
+function moveToExternal( $cluster, $maxID, $minID = 1 ) {
 	$fname = 'moveToExternal';
-	$dbw =& wfGetDB( DB_MASTER );
+	$dbw = wfGetDB( DB_MASTER );
+	$dbr = wfGetDB( DB_SLAVE );
 
-	print "Moving $maxID text rows to external storage\n";
+	$count = $maxID - $minID + 1;
+	$blockSize = 1000;
+	$numBlocks = ceil( $count / $blockSize );
+	print "Moving text rows from $minID to $maxID to external storage\n";
 	$ext = new ExternalStoreDB;
-	for ( $id = 1; $id <= $maxID; $id++ ) {
-		if ( !($id % REPORTING_INTERVAL) ) {
-			print "$id\n";
-			wfWaitForSlaves( 5 );
+	$numMoved = 0;
+	$numStubs = 0;
+	
+	for ( $block = 0; $block < $numBlocks; $block++ ) {
+		$blockStart = $block * $blockSize + $minID;
+		$blockEnd = $blockStart + $blockSize - 1;
+		
+		if ( !($block % REPORTING_INTERVAL) ) {
+			print "oldid=$blockStart, moved=$numMoved\n";
+			wfWaitForSlaves( 2 );
 		}
-		$row = $dbw->selectRow( 'text', array( 'old_flags', 'old_text' ),
-			array( 
-				'old_id' => $id,
+		
+		$res = $dbr->select( 'text', array( 'old_id', 'old_flags', 'old_text' ),
+			array(
+				"old_id BETWEEN $blockStart AND $blockEnd",
 				"old_flags NOT LIKE '%external%'",
 			), $fname );
-		if ( !$row ) {
-			# Non-existent or already done
-			continue;
-		}
+		while ( $row = $dbr->fetchObject( $res ) ) {
+			# Resolve stubs
+			$text = $row->old_text;
+			$id = $row->old_id;
+			if ( $row->old_flags === '' ) {
+				$flags = 'external';
+			} else {
+				$flags = "{$row->old_flags},external";
+			}
+			
+			if ( strpos( $flags, 'object' ) !== false ) {
+				$obj = unserialize( $text );
+				$className = strtolower( get_class( $obj ) );
+				if ( $className == 'historyblobstub' ) {
+					#resolveStub( $id, $row->old_text, $row->old_flags );
+					#$numStubs++;
+					continue;
+				} elseif ( $className == 'historyblobcurstub' ) {
+					$text = gzdeflate( $obj->getText() );
+					$flags = 'utf-8,gzip,external';
+				} elseif ( $className == 'concatenatedgziphistoryblob' ) {
+					// Do nothing
+				} else {
+					print "Warning: unrecognised object class \"$className\"\n";
+					continue;
+				}
+			} else {
+				$className = false;
+			}
 
-		# Resolve stubs
-		$flags = explode( ',', $row->old_flags );
-		if ( in_array( 'object', $flags ) 
-			&& substr( $row->old_text, 0, strlen( STUB_HEADER ) ) === STUB_HEADER ) 
-		{
-			resolveStub( $id, $row->old_text, $row->old_flags );
-			continue;
-		}
+			if ( strlen( $text ) < 100 && $className === false ) {
+				// Don't move tiny revisions
+				continue;
+			}
 
-		$url = $ext->store( $cluster, $row->old_text );
-		if ( !$url ) {
-			print "Error writing to external storage\n";
-			exit;
+			#print "Storing "  . strlen( $text ) . " bytes to $url\n";
+			#print "old_id=$id\n";
+
+			$url = $ext->store( $cluster, $text );
+			if ( !$url ) {
+				print "Error writing to external storage\n";
+				exit;
+			}
+			$dbw->update( 'text',
+				array( 'old_flags' => $flags, 'old_text' => $url ),
+				array( 'old_id' => $id ), $fname );
+			$numMoved++;
 		}
-		if ( $row->old_flags === '' ) {
-			$flags = 'external';
-		} else {
-			$flags = "{$row->old_flags},external";
-		}
-		$dbw->update( 'text', 
-			array( 'old_flags' => $flags, 'old_text' => $url ),
-			array( 'old_id' => $id ), $fname );
+		$dbr->freeResult( $res );
 	}
 }
 
-?>
+

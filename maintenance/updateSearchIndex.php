@@ -9,8 +9,7 @@
  * LOCKTIME is how long the searchindex and cur tables will be locked for
  * -q means quiet
  *
- * @package MediaWiki
- * @subpackage Maintenance
+ * @addtogroup Maintenance
  */
 
 /** */
@@ -37,7 +36,7 @@ if ( isset( $options['s'] ) ) {
 	$start = @file_get_contents( $posFile );
 	if ( !$start ) {
 		$start = wfTimestamp( TS_MW, time() - 86400 );
-	} 
+	}
 }
 
 if ( isset( $options['l'] ) ) {
@@ -54,4 +53,4 @@ $file = fopen( $posFile, 'w' );
 fwrite( $file, $end );
 fclose( $file );
 
-?>
+

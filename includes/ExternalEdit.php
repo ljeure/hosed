@@ -3,12 +3,10 @@
  * License: Public domain
  *
  * @author Erik Moeller <moeller@scireview.de>
- * @package MediaWiki
  */
 
 /**
- * 
- * @package MediaWiki
+ *
  *
  * Support for external editors to modify both text and files
  * in external applications. It works as follows: MediaWiki
@@ -19,37 +17,36 @@
  * and save the modified data back to the server.
  *
  */
- 
+
 class ExternalEdit {
 
-	function ExternalEdit ( $article, $mode ) {
+	function __construct( $article, $mode ) {
 		global $wgInputEncoding;
 		$this->mArticle =& $article;
 		$this->mTitle =& $article->mTitle;
 		$this->mCharset = $wgInputEncoding;
 		$this->mMode = $mode;
 	}
-	
+
 	function edit() {
-		global $wgUser, $wgOut, $wgScript, $wgScriptPath, $wgServer,
-		       $wgLang;
+		global $wgOut, $wgScript, $wgScriptPath, $wgServer, $wgLang;
 		$wgOut->disable();
 		$name=$this->mTitle->getText();
 		$pos=strrpos($name,".")+1;
 		header ( "Content-type: application/x-external-editor; charset=".$this->mCharset );
-		
+
 		# $type can be "Edit text", "Edit file" or "Diff text" at the moment
 		# See the protocol specifications at [[m:Help:External editors/Tech]] for
 		# details.
-		if(!isset($this->mMode)) {		
-			$type="Edit text";		
+		if(!isset($this->mMode)) {
+			$type="Edit text";
 			$url=$this->mTitle->getFullURL("action=edit&internaledit=true");
-			# *.wiki file extension is used by some editors for syntax 
+			# *.wiki file extension is used by some editors for syntax
 			# highlighting, so we follow that convention
-			$extension="wiki"; 
+			$extension="wiki";
 		} elseif($this->mMode=="file") {
-			$type="Edit file"; 
-			$image = Image::newFromTitle( $this->mTitle );
+			$type="Edit file";
+			$image = wfLocalFile( $this->mTitle );
 			$img_url = $image->getURL();
 			if(strpos($img_url,"://")) {
 				$url = $img_url;
@@ -58,7 +55,7 @@ class ExternalEdit {
 			}
 			$extension=substr($name, $pos);
 		}
-		$special=$wgLang->getNsText(NS_SPECIAL);		 
+		$special=$wgLang->getNsText(NS_SPECIAL);
 		$control = <<<CONTROL
 [Process]
 Type=$type
@@ -75,4 +72,4 @@ CONTROL;
 		echo $control;
 	}
 }
-?>
+

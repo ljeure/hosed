@@ -8,37 +8,49 @@ require_once( 'commandLine.inc' );
 require_once( 'SpecialPage.php' );
 require_once( 'QueryPage.php' );
 
-if($options['help']) {
+if(@$options['help']) {
 	print "usage:updateSpecialPages.php [--help] [--only=page]\n";
 	print "  --help      : this help message\n";
+	print "  --list      : list special pages names\n";
 	print "  --only=page : only update 'page'. Ex: --only=BrokenRedirects\n";
-	die();
+	wfDie();
 }
 
 $wgOut->disable();
-$dbw =& wfGetDB( DB_MASTER );
+$dbw = wfGetDB( DB_MASTER );
 
 foreach ( $wgQueryPages as $page ) {
-	list( $class, $special ) = $page;
+	@list( $class, $special, $limit ) = $page;
+
+	# --list : just show the name of pages
+	if( @$options['list'] ) {
+		print "$special\n";
+		continue;
+	}
+
+	if ( $wgDisableQueryPageUpdate && in_array( $special, $wgDisableQueryPageUpdate ) ) {
+		printf("%-30s disabled\n", $special);
+		continue;
+	}
 
 	$specialObj = SpecialPage::getPage( $special );
 	if ( !$specialObj ) {
 		print "No such special page: $special\n";
 		exit;
 	}
-	$file = $specialObj->getFile();
-	if ( $file ) {
+	if ( !class_exists( $class ) ) {
+		$file = $specialObj->getFile();
 		require_once( $file );
 	}
 	$queryPage = new $class;
 
 	if( !(isset($options['only'])) or ($options['only'] == $queryPage->getName()) ) {
-	printf( '%-30s',  $special );
+	printf( '%-30s ',  $special );
 
 	if ( $queryPage->isExpensive() ) {
 		$t1 = explode( ' ', microtime() );
 		# Do the query
-		$num = $queryPage->recache();
+		$num = $queryPage->recache( $limit === null ? $wgQueryCacheLimit : $limit );
 		$t2 = explode( ' ', microtime() );
 
 		if ( $num === false ) {
@@ -73,12 +85,15 @@ foreach ( $wgQueryPages as $page ) {
 		}
 
 		# Wait for the slave to catch up
-		$slaveDB =& wfGetDB( DB_SLAVE, array('QueryPage::recache', 'vslow' ) );
+		/*
+		$slaveDB = wfGetDB( DB_SLAVE, array('QueryPage::recache', 'vslow' ) );
 		while( $slaveDB->getLag() > 600 ) {
 			print "Slave lagged, waiting...\n";
 			sleep(30);
 
 		}
+		*/
+		wfWaitForSlaves( 5 );
 
 	} else {
 		print "cheap, skipped\n";
@@ -86,4 +101,4 @@ foreach ( $wgQueryPages as $page ) {
 	}
 }
 
-?>
+

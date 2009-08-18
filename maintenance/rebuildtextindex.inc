@@ -1,4 +1,5 @@
 <?php
+require_once 'counter.php';
 /**
  * Rebuild the fulltext search indexes. This may take a while
  * depending on the database size and server configuration.
@@ -7,8 +8,7 @@
  * but that will prevent searches from working while it runs.
  *
  * @todo document
- * @package MediaWiki
- * @subpackage Maintenance
+ * @addtogroup Maintenance
  */
 
 /** */
@@ -27,7 +27,7 @@ function dropTextIndex( &$database )
 function createTextIndex( &$database )
 {
 	$searchindex = $database->tableName( 'searchindex' );
-	echo "Rebuild the index...\n";
+	echo "\nRebuild the index...\n";
 	$sql = "ALTER TABLE $searchindex ADD FULLTEXT si_title (si_title), " .
 	  "ADD FULLTEXT si_text (si_text)";
 	$database->query($sql, "createTextIndex" );
@@ -35,7 +35,7 @@ function createTextIndex( &$database )
 
 function rebuildTextIndex( &$database )
 {
-	extract( $database->tableNames( 'page', 'revision', 'text', 'searchindex' ) );
+	list ($page, $revision, $text, $searchindex) = $database->tableNamesN( 'page', 'revision', 'text', 'searchindex' );
 
 	$sql = "SELECT MAX(page_id) AS count FROM $page";
 	$res = $database->query($sql, "rebuildTextIndex" );
@@ -45,7 +45,7 @@ function rebuildTextIndex( &$database )
 	$n = 0;
 
 	while ( $n < $count ) {
-		print "$n\n";
+		print_c( $n - 1, $n);
 		$end = $n + RTI_CHUNK_SIZE - 1;
 		$sql = "SELECT page_id, page_namespace, page_title, old_flags, old_text
 		          FROM $page, $revision, $text

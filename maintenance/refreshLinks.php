@@ -1,12 +1,11 @@
 <?php
 /**
  * @todo document
- * @package MediaWiki
- * @subpackage Maintenance
+ * @addtogroup Maintenance
  */
 
 /** */
-$optionsWithArgs = array( 'm' );
+$optionsWithArgs = array( 'm', 'e' );
 require_once( "commandLine.inc" );
 require_once( "refreshLinks.inc" );
 
@@ -19,8 +18,14 @@ if ( !$options['dfn-only'] ) {
 		$start = 1;
 	}
 
-	refreshLinks( $start, $options['new-only'], $options['m'] );
+	refreshLinks( $start, $options['new-only'], $options['m'], $options['e'], $options['redirects-only'] );
 }
-deleteLinksFromNonexistent();
+// this bit's bad for replication: disabling temporarily
+// --brion 2005-07-16
+//deleteLinksFromNonexistent();
 
-?>
+if ( $options['globals'] ) {
+	print_r( $GLOBALS );
+}
+
+

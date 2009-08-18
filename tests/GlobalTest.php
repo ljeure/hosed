@@ -1,30 +1,19 @@
 <?php
 
-require_once( 'PHPUnit.php' );
-require_once( '../includes/Defines.php' );
-require_once( '../includes/Profiling.php' );
-require_once( '../includes/GlobalFunctions.php' );
-
-class GlobalTest extends PHPUnit_TestCase {
-	function GlobalTest( $name ) {
-		$this->PHPUnit_TestCase( $name );
-	}
-	
+class GlobalTest extends PHPUnit_Framework_TestCase {
 	function setUp() {
-		$this->save = array();
-		$saveVars = array( 'wgReadOnlyFile' );
-		foreach( $saveVars as $var ) {
-			if( isset( $GLOBALS[$var] ) ) {
-				$this->save[$var] = $GLOBALS[$var];
-			}
-		}
-		$GLOBALS['wgReadOnlyFile'] = wfTempDir() . '/testReadOnly-' . mt_rand();
+		global $wgReadOnlyFile;
+		$this->originals['wgReadOnlyFile'] = $wgReadOnlyFile;
+		$wgReadOnlyFile = tempnam(wfTempDir(), "mwtest_readonly");
+		unlink( $wgReadOnlyFile );
 	}
 	
 	function tearDown() {
-		foreach( $this->save as $var => $data ) {
-			$GLOBALS[$var] = $data;
+		global $wgReadOnlyFile;
+		if( file_exists( $wgReadOnlyFile ) ) {
+			unlink( $wgReadOnlyFile );
 		}
+		$wgReadOnlyFile = $this->originals['wgReadOnlyFile'];
 	}
 	
 	function testRandom() {
@@ -32,40 +21,52 @@ class GlobalTest extends PHPUnit_TestCase {
 		$this->assertFalse(
 			wfRandom() == wfRandom() );
 	}
-	
+
 	function testUrlencode() {
 		$this->assertEquals(
 			"%E7%89%B9%E5%88%A5:Contributions/Foobar",
 			wfUrlencode( "\xE7\x89\xB9\xE5\x88\xA5:Contributions/Foobar" ) );
 	}
-	
+
 	function testReadOnlyEmpty() {
+		global $wgReadOnly;
+		$wgReadOnly = null;
+		
+		$this->assertFalse( wfReadOnly() );
 		$this->assertFalse( wfReadOnly() );
 	}
-	
+
 	function testReadOnlySet() {
-		$f = fopen( $GLOBALS['wgReadOnlyFile'], "wt" );
+		global $wgReadOnly, $wgReadOnlyFile;
+		
+		$f = fopen( $wgReadOnlyFile, "wt" );
 		fwrite( $f, 'Message' );
 		fclose( $f );
-		$this->assertTrue( wfReadOnly() );
+		$wgReadOnly = null;
 		
-		unlink( $GLOBALS['wgReadOnlyFile'] );
+		$this->assertTrue( wfReadOnly() );
+		$this->assertTrue( wfReadOnly() );
+
+		unlink( $wgReadOnlyFile );
+		$wgReadOnly = null;
+		
+		$this->assertFalse( wfReadOnly() );
 		$this->assertFalse( wfReadOnly() );
 	}
-	
+
 	function testQuotedPrintable() {
 		$this->assertEquals(
 			"=?UTF-8?Q?=C4=88u=20legebla=3F?=",
 			wfQuotedPrintable( "\xc4\x88u legebla?", "UTF-8" ) );
 	}
-	
+
 	function testTime() {
 		$start = wfTime();
-		$this->assertType( 'double', $start );
+		$this->assertType( 'float', $start );
 		$end = wfTime();
 		$this->assertTrue( $end > $start, "Time is running backwards!" );
 	}
-	
+
 	function testArrayToCGI() {
 		$this->assertEquals(
 			"baz=AT%26T&foo=bar",
@@ -73,7 +74,7 @@ class GlobalTest extends PHPUnit_TestCase {
 				array( 'baz' => 'AT&T', 'ignore' => '' ),
 				array( 'foo' => 'bar', 'baz' => 'overridden value' ) ) );
 	}
-	
+
 	function testMimeTypeMatch() {
 		$this->assertEquals(
 			'text/html',
@@ -95,7 +96,7 @@ class GlobalTest extends PHPUnit_TestCase {
 				array( 'image/png'     => 1.0,
 				       'image/svg+xml' => 0.5 ) ) );
 	}
-	
+
 	function testNegotiateType() {
 		$this->assertEquals(
 			'text/html',
@@ -136,7 +137,7 @@ class GlobalTest extends PHPUnit_TestCase {
 				array( 'text/*'                => 1.0 ),
 				array( 'application/xhtml+xml' => 1.0 ) ) );
 	}
-	
+
 	function testTimestamp() {
 		$t = gmmktime( 12, 34, 56, 1, 15, 2001 );
 		$this->assertEquals(
@@ -151,7 +152,7 @@ class GlobalTest extends PHPUnit_TestCase {
 			'2001-01-15 12:34:56',
 			wfTimestamp( TS_DB, $t ),
 			'TS_UNIX to TS_DB' );
-		
+
 		$this->assertEquals(
 			'20010115123456',
 			wfTimestamp( TS_MW, '20010115123456' ),
@@ -164,7 +165,7 @@ class GlobalTest extends PHPUnit_TestCase {
 			'2001-01-15 12:34:56',
 			wfTimestamp( TS_DB, '20010115123456' ),
 			'TS_MW to TS_DB' );
-		
+
 		$this->assertEquals(
 			'20010115123456',
 			wfTimestamp( TS_MW, '2001-01-15 12:34:56' ),
@@ -179,7 +180,33 @@ class GlobalTest extends PHPUnit_TestCase {
 			'TS_DB to TS_DB' );
 	}
 	
+	function testBasename() {
+		$sets = array(
+			'' => '',
+			'/' => '',
+			'\\' => '',
+			'//' => '',
+			'\\\\' => '',
+			'a' => 'a',
+			'aaaa' => 'aaaa',
+			'/a' => 'a',
+			'\\a' => 'a',
+			'/aaaa' => 'aaaa',
+			'\\aaaa' => 'aaaa',
+			'/aaaa/' => 'aaaa',
+			'\\aaaa\\' => 'aaaa',
+			'\\aaaa\\' => 'aaaa',
+			'/mnt/upload3/wikipedia/en/thumb/8/8b/Zork_Grand_Inquisitor_box_cover.jpg/93px-Zork_Grand_Inquisitor_box_cover.jpg' => '93px-Zork_Grand_Inquisitor_box_cover.jpg',
+			'C:\\Progra~1\\Wikime~1\\Wikipe~1\\VIEWER.EXE' => 'VIEWER.EXE',
+			'Östergötland_coat_of_arms.png' => 'Östergötland_coat_of_arms.png',
+			);
+		foreach( $sets as $from => $to ) {
+			$this->assertEquals( $to, wfBaseName( $from ),
+				"wfBaseName('$from') => '$to'");
+		}
+	}
+
 	/* TODO: many more! */
 }
 
-?>
+

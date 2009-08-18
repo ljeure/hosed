@@ -1,31 +1,18 @@
 <?php
 
-require_once( 'PHPUnit.php' );
-require_once( '../includes/Defines.php' );
-require_once( '../includes/Database.php' );
-require_once( '../includes/GlobalFunctions.php' );
-
-class DatabaseTest extends PHPUnit_TestCase {
+class DatabaseTest extends PHPUnit_Framework_TestCase {
 	var $db;
-	
-	function DatabaseTest( $name ) {
-		$this->PHPUnit_TestCase( $name );
-	}
-	
+
 	function setUp() {
-		$this->db =& new Database();
+		$this->db = wfGetDB( DB_SLAVE );
 	}
-	
-	function tearDown() {
-		unset( $this->db );
-	}
-	
+
 	function testAddQuotesNull() {
 		$this->assertEquals(
 			'NULL',
 			$this->db->addQuotes( NULL ) );
 	}
-	
+
 	function testAddQuotesInt() {
 		# returning just "1234" should be ok too, though...
 		# maybe
@@ -33,7 +20,7 @@ class DatabaseTest extends PHPUnit_TestCase {
 			"'1234'",
 			$this->db->addQuotes( 1234 ) );
 	}
-	
+
 	function testAddQuotesFloat() {
 		# returning just "1234.5678" would be ok too, though
 		$this->assertEquals(
@@ -46,7 +33,7 @@ class DatabaseTest extends PHPUnit_TestCase {
 			"'string'",
 			$this->db->addQuotes( 'string' ) );
 	}
-	
+
 	function testAddQuotesStringQuote() {
 		$this->assertEquals(
 			"'string\'s cause trouble'",
@@ -60,7 +47,7 @@ class DatabaseTest extends PHPUnit_TestCase {
 			"SELECT * FROM interwiki",
 			$sql);
 	}
-	
+
 	function testFillPreparedQuestion() {
 		$sql = $this->db->fillPrepared(
 			'SELECT * FROM cur WHERE cur_namespace=? AND cur_title=?',
@@ -69,7 +56,7 @@ class DatabaseTest extends PHPUnit_TestCase {
 			"SELECT * FROM cur WHERE cur_namespace='4' AND cur_title='Snicker\'s_paradox'",
 			$sql);
 	}
-	
+
 	function testFillPreparedBang() {
 		$sql = $this->db->fillPrepared(
 			'SELECT user_id FROM ! WHERE user_name=?',
@@ -90,4 +77,4 @@ class DatabaseTest extends PHPUnit_TestCase {
 
 }
 
-?>
+

@@ -1,19 +1,12 @@
 <?php
 /**
  *
- * @package MediaWiki
- * @subpackage SpecialPage
+ * @addtogroup SpecialPage
  */
 
 /**
- *
- */
-require_once( "QueryPage.php" );
-
-/**
- *
- * @package MediaWiki
- * @subpackage SpecialPage
+ * implements Special:Popularpages
+ * @addtogroup SpecialPage
  */
 class PopularPagesPage extends QueryPage {
 
@@ -28,24 +21,37 @@ class PopularPagesPage extends QueryPage {
 	function isSyndicated() { return false; }
 
 	function getSQL() {
-		$dbr =& wfGetDB( DB_SLAVE );
+		$dbr = wfGetDB( DB_SLAVE );
 		$page = $dbr->tableName( 'page' );
 
-		return
+		$query = 
 			"SELECT 'Popularpages' as type,
 			        page_namespace as namespace,
 			        page_title as title,
 			        page_counter as value
-			FROM $page
-			WHERE page_namespace=".NS_MAIN." AND page_is_redirect=0";
+			FROM $page ";
+		$where =
+			"WHERE page_is_redirect=0 AND page_namespace";
+
+		global $wgContentNamespaces;
+		if( empty( $wgContentNamespaces ) ) {
+			$where .= '='.NS_MAIN;
+		} else if( count( $wgContentNamespaces ) > 1 ) {
+			$where .= ' in (' . implode( ', ', $wgContentNamespaces ) . ')';
+		} else {
+			$where .= '='.$wgContentNamespaces[0];
+		}
+
+		return $query . $where;
 	}
 
 	function formatResult( $skin, $result ) {
 		global $wgLang, $wgContLang;
 		$title = Title::makeTitle( $result->namespace, $result->title );
-		$link = $skin->makeKnownLinkObj( $title, $wgContLang->convert( $title->getPrefixedText() ) );
-		$nv = wfMsg( "nviews", $wgLang->formatNum( $result->value ) );
-		return "{$link} ({$nv})";
+		$link = $skin->makeKnownLinkObj( $title, htmlspecialchars( $wgContLang->convert( $title->getPrefixedText() ) ) );
+		$nv = wfMsgExt( 'nviews', array( 'parsemag', 'escape'),
+			$wgLang->formatNum( $result->value ) );
+		return wfSpecialList($link, $nv);
 	}
 }
 
@@ -53,11 +59,11 @@ class PopularPagesPage extends QueryPage {
  * Constructor
  */
 function wfSpecialPopularpages() {
-    list( $limit, $offset ) = wfCheckLimits();
-    
-    $ppp = new PopularPagesPage();
-    
-    return $ppp->doQuery( $offset, $limit );
+	list( $limit, $offset ) = wfCheckLimits();
+
+	$ppp = new PopularPagesPage();
+
+	return $ppp->doQuery( $offset, $limit );
 }
 
-?>
+

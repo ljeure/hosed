@@ -2,8 +2,7 @@
 /**
  * Script for re-attributing edits
  *
- * @package MediaWiki
- * @subpackage Maintenance
+ * @addtogroup Maintenance
  */
 
 /** */
@@ -23,7 +22,7 @@ if ( count( $args ) < 2 ) {
 $source = $args[0];
 $dest = $args[1];
 
-$dbr =& wfGetDB( DB_SLAVE );
+$dbr = wfGetDB( DB_SLAVE );
 extract( $dbr->tableNames( 'page', 'revision','user' ));
 $eSource = $dbr->strencode( $source );
 $eDest = $dbr->strencode( $dest );
@@ -44,7 +43,7 @@ $sqlfile = fopen( "attribute.sql", "a" );
 
 fwrite( $logfile, "* $source &rarr; $dest\n" );
 
-fwrite( $sqlfile, 
+fwrite( $sqlfile,
 "-- Changing attribution SQL file
 -- Generated with attribute.php
 -- $source -> $dest ($uid)
@@ -69,7 +68,7 @@ if ( $row ) {
 */
 	fwrite( $logfile, "**Revision IDs: " );
 	fwrite( $sqlfile, "UPDATE $revision SET rev_user=$uid, rev_user_text='$eDest' WHERE rev_id IN (\n" );
-	
+
 	for ( $first=true; $row; $row = $dbr->fetchObject( $res ) ) {
 		$title = Title::makeTitle( $row->page_namespace, $row->page_title );
 		$fullTitle = $title->getPrefixedDbKey();
@@ -79,7 +78,7 @@ if ( $row ) {
 
 		print "$fullTitle\n";
 		$url = $title->getFullUrl( "oldid={$row->rev_id}" );
-		
+
 		# Output
 		fwrite( $sqlfile, "      " );
 		if ( $first ) {
@@ -102,4 +101,4 @@ print "\n";
 fclose( $sqlfile );
 fclose( $logfile );
 
-?>
+
