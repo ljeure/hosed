@@ -1,6 +1,16 @@
 <?php
+/**
+ * This script starts pending jobs.
+ *
+ * Usage:
+ *  --maxjobs <num> (default 10000)
+ *  --type <job_cmd>
+ *
+ * @file
+ * @ingroup Maintenance
+ */
 
-$optionsWithArgs = array( 'maxjobs' );
+$optionsWithArgs = array( 'maxjobs', 'type' );
 $wgUseNormalUser = true;
 require_once( 'commandLine.inc' );
 require_once( "$IP/includes/JobQueue.php" );
@@ -20,25 +30,25 @@ $wgTitle = Title::newFromText( 'RunJobs.php' );
 
 $dbw = wfGetDB( DB_MASTER );
 $n = 0;
-$conds = array();
+$conds = '';
 if ($type !== false)
-	$conds = array('job_cmd' => $type);
+	$conds = "job_cmd = " . $dbw->addQuotes($type);
 
-while ( $dbw->selectField( 'job', 'count(*)', $conds, 'runJobs.php' ) ) {
+while ( $dbw->selectField( 'job', 'job_id', $conds, 'runJobs.php' ) ) {
 	$offset=0;
 	for (;;) {
 		$job = ($type == false) ?
-				Job::pop($offset, $type)
+				Job::pop($offset)
 				: Job::pop_type($type);
 
 		if ($job == false)
 			break;
 
 		wfWaitForSlaves( 5 );
-		print $job->id . "  " . $job->toString() . "\n";
+		print wfTimestamp( TS_DB ) . "  " . $job->id . "  " . $job->toString() . "\n";
 		$offset=$job->id;
 		if ( !$job->run() ) {
-			print "Error: {$job->error}\n";
+			print wfTimestamp( TS_DB ) . "  Error: {$job->error}\n";
 		}
 		if ( $maxJobs && ++$n > $maxJobs ) {
 			break 2;

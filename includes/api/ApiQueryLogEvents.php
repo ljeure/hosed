@@ -30,8 +30,8 @@ if (!defined('MEDIAWIKI')) {
 
 /**
  * Query action to List the log events, with optional filtering by various parameters.
- *  
- * @addtogroup API
+ *
+ * @ingroup API
  */
 class ApiQueryLogEvents extends ApiQueryBase {
 
@@ -40,7 +40,7 @@ class ApiQueryLogEvents extends ApiQueryBase {
 	}
 
 	public function execute() {
-		$params = $this->extractRequestParams();		
+		$params = $this->extractRequestParams();
 		$db = $this->getDB();
 
 		$prop = $params['prop'];
@@ -54,19 +54,26 @@ class ApiQueryLogEvents extends ApiQueryBase {
 
 		list($tbl_logging, $tbl_page, $tbl_user) = $db->tableNamesN('logging', 'page', 'user');
 
-		$this->addOption('STRAIGHT_JOIN');
-		$this->addTables("$tbl_logging LEFT OUTER JOIN $tbl_page ON " .
-		"log_namespace=page_namespace AND log_title=page_title " .
-		"INNER JOIN $tbl_user ON user_id=log_user");
+		$hideLogs = LogEventsList::getExcludeClause($db);
+		if($hideLogs !== false)
+			$this->addWhere($hideLogs);
+
+		// Order is significant here
+		$this->addTables(array('user', 'page', 'logging'));
+		$this->addJoinConds(array(
+			'page' => array('LEFT JOIN',
+				array(	'log_namespace=page_namespace',
+					'log_title=page_title'))));
+		$this->addWhere('user_id=log_user');
+		$this->addOption('USE INDEX', array('logging' => 'times')); // default, may change
 
 		$this->addFields(array (
 			'log_type',
 			'log_action',
 			'log_timestamp',
 		));
-		
-		// FIXME: Fake out log_id for now until the column is live on Wikimedia
-		// $this->addFieldsIf('log_id', $this->fld_ids);
+
+		$this->addFieldsIf('log_id', $this->fld_ids);
 		$this->addFieldsIf('page_id', $this->fld_ids);
 		$this->addFieldsIf('log_user', $this->fld_user);
 		$this->addFieldsIf('user_name', $this->fld_user);
@@ -74,23 +81,27 @@ class ApiQueryLogEvents extends ApiQueryBase {
 		$this->addFieldsIf('log_title', $this->fld_title);
 		$this->addFieldsIf('log_comment', $this->fld_comment);
 		$this->addFieldsIf('log_params', $this->fld_details);
-		
 
 		$this->addWhereFld('log_deleted', 0);
-		$this->addWhereFld('log_type', $params['type']);
+		
+		if( !is_null($params['type']) ) {
+			$this->addWhereFld('log_type', $params['type']);
+			$this->addOption('USE INDEX', array('logging' => array('type_time')));
+		}
+		
 		$this->addWhereRange('log_timestamp', $params['dir'], $params['start'], $params['end']);
 
 		$limit = $params['limit'];
 		$this->addOption('LIMIT', $limit +1);
-
+		
+		$index = false;
 		$user = $params['user'];
 		if (!is_null($user)) {
-			$userid = $db->selectField('user', 'user_id', array (
-				'user_name' => $user
-			));
+			$userid = User::idFromName($user);
 			if (!$userid)
 				$this->dieUsage("User name $user not found", 'param_user');
 			$this->addWhereFld('log_user', $userid);
+			$index = 'user_time';
 		}
 
 		$title = $params['title'];
@@ -100,7 +111,14 @@ class ApiQueryLogEvents extends ApiQueryBase {
 				$this->dieUsage("Bad title value '$title'", 'param_title');
 			$this->addWhereFld('log_namespace', $titleObj->getNamespace());
 			$this->addWhereFld('log_title', $titleObj->getDBkey());
+
+			// Use the title index in preference to the user index if there is a conflict
+			$index = 'page_time';
 		}
+		if ( $index ) {
+			$this->addOption( 'USE INDEX', array( 'logging' => $index ) );
+		}
+
 
 		$data = array ();
 		$count = 0;
@@ -121,65 +139,71 @@ class ApiQueryLogEvents extends ApiQueryBase {
 		$this->getResult()->setIndexedTagName($data, 'item');
 		$this->getResult()->addValue('query', $this->getModuleName(), $data);
 	}
+	
+	public static function addLogParams($result, &$vals, $params, $type, $ts) {
+		$params = explode("\n", $params);
+		switch ($type) {
+			case 'move':
+				if (isset ($params[0])) {
+					$title = Title :: newFromText($params[0]);
+					if ($title) {
+						$vals2 = array();
+						ApiQueryBase :: addTitleInfo($vals2, $title, "new_");
+						$vals[$type] = $vals2;
+						$params = null;
+					}
+				}
+				break;
+			case 'patrol':
+				$vals2 = array();
+				list( $vals2['cur'], $vals2['prev'], $vals2['auto'] ) = $params;
+				$vals[$type] = $vals2;
+				$params = null;
+				break;
+			case 'rights':
+				$vals2 = array();
+				list( $vals2['old'], $vals2['new'] ) = $params;
+				$vals[$type] = $vals2;
+				$params = null;
+				break;
+			case 'block':
+				$vals2 = array();
+				list( $vals2['duration'], $vals2['flags'] ) = $params;
+				$vals2['expiry'] = wfTimestamp(TS_ISO_8601,
+						strtotime($params[0], wfTimestamp(TS_UNIX, $ts)));
+				$vals[$type] = $vals2;
+				$params = null;
+				break;
+		}
+		if (!is_null($params)) {
+			$result->setIndexedTagName($params, 'param');
+			$vals = array_merge($vals, $params);
+		}
+		return $vals;
+	}
 
 	private function extractRowInfo($row) {
 		$vals = array();
 
 		if ($this->fld_ids) {
-			// FIXME: Fake out log_id for now until the column is live on Wikimedia
-			// $vals['logid'] = intval($row->log_id);
-			$vals['logid'] = 0;
+			$vals['logid'] = intval($row->log_id);
 			$vals['pageid'] = intval($row->page_id);
 		}
-		
+
 		if ($this->fld_title) {
 			$title = Title :: makeTitle($row->log_namespace, $row->log_title);
 			ApiQueryBase :: addTitleInfo($vals, $title);
 		}
-		
+
 		if ($this->fld_type) {
 			$vals['type'] = $row->log_type;
 			$vals['action'] = $row->log_action;
 		}
-		
+
 		if ($this->fld_details && $row->log_params !== '') {
-			$params = explode("\n", $row->log_params);
-			switch ($row->log_type) {
-				case 'move': 
-					if (isset ($params[0])) {
-						$title = Title :: newFromText($params[0]);
-						if ($title) {
-							$vals2 = array();
-							ApiQueryBase :: addTitleInfo($vals2, $title, "new_");
-							$vals[$row->log_type] = $vals2;
-							$params = null;
-						}
-					}
-					break;
-				case 'patrol':
-					$vals2 = array();
-					list( $vals2['cur'], $vals2['prev'], $vals2['auto'] ) = $params;
-					$vals[$row->log_type] = $vals2;
-					$params = null;
-					break;
-				case 'rights':
-					$vals2 = array();
-					list( $vals2['old'], $vals2['new'] ) = $params;
-					$vals[$row->log_type] = $vals2;
-					$params = null;
-					break;
-				case 'block':
-					$vals2 = array();
-					list( $vals2['duration'], $vals2['flags'] ) = $params;
-					$vals[$row->log_type] = $vals2;
-					$params = null;
-					break;
-			}
-			
-			if (isset($params)) {
-				$this->getResult()->setIndexedTagName($params, 'param');
-				$vals = array_merge($vals, $params);
-			}
+			self::addLogParams($this->getResult(), $vals,
+				$row->log_params, $row->log_type,
+				$row->log_timestamp);
 		}
 
 		if ($this->fld_user) {
@@ -190,15 +214,15 @@ class ApiQueryLogEvents extends ApiQueryBase {
 		if ($this->fld_timestamp) {
 			$vals['timestamp'] = wfTimestamp(TS_ISO_8601, $row->log_timestamp);
 		}
-		if ($this->fld_comment && !empty ($row->log_comment)) {
+		if ($this->fld_comment && isset($row->log_comment)) {
 			$vals['comment'] = $row->log_comment;
 		}
-			
+
 		return $vals;
 	}
 
 
-	protected function getAllowedParams() {
+	public function getAllowedParams() {
 		global $wgLogTypes;
 		return array (
 			'prop' => array (
@@ -215,7 +239,6 @@ class ApiQueryLogEvents extends ApiQueryBase {
 				)
 			),
 			'type' => array (
-				ApiBase :: PARAM_ISMULTI => true,
 				ApiBase :: PARAM_TYPE => $wgLogTypes
 			),
 			'start' => array (
@@ -243,8 +266,9 @@ class ApiQueryLogEvents extends ApiQueryBase {
 		);
 	}
 
-	protected function getParamDescription() {
+	public function getParamDescription() {
 		return array (
+			'prop' => 'Which properties to get',
 			'type' => 'Filter log entries to only this type(s)',
 			'start' => 'The timestamp to start enumerating from.',
 			'end' => 'The timestamp to end enumerating.',
@@ -255,7 +279,7 @@ class ApiQueryLogEvents extends ApiQueryBase {
 		);
 	}
 
-	protected function getDescription() {
+	public function getDescription() {
 		return 'Get events from logs.';
 	}
 
@@ -266,7 +290,6 @@ class ApiQueryLogEvents extends ApiQueryBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiQueryLogEvents.php 24256 2007-07-18 21:47:09Z robchurch $';
+		return __CLASS__ . ': $Id: ApiQueryLogEvents.php 44234 2008-12-04 15:59:26Z catrope $';
 	}
 }
-

@@ -7,6 +7,9 @@
 # See includes/DefaultSettings.php for all configurable settings
 # and their default values, but don't forget to make changes in _this_
 # file, not there.
+#
+# Further documentation for configuration settings may be found at:
+# http://www.mediawiki.org/wiki/Manual:Configuration_settings
 
 # If you customize your file layout, set $IP to the directory that contains
 # the other MediaWiki files. It will be used as a base to locate files.
@@ -36,28 +39,24 @@ $wgSitename         = WIZARD_SITENAME;
 
 ## The URL base path to the directory containing the wiki;
 ## defaults for all runtime URL paths are based off of this.
+## For more information on customizing the URLs please see:
+## http://www.mediawiki.org/wiki/Manual:Short_URL
 $wgScriptPath       = WIZARD_SCRIPTPATH;
 $wgScriptExtension  = ".php";
 
-## For more information on customizing the URLs please see:
-## http://www.mediawiki.org/wiki/Manual:Short_URL
+## UPO means: this is also a user preference option
 
 $wgEnableEmail      = true;
-$wgEnableUserEmail  = true;
+$wgEnableUserEmail  = true; # UPO
 
 $wgEmergencyContact = WIZARD_EMERGENCYCONTACT;
 $wgPasswordSender = WIZARD_EMERGENCYCONTACT;
 
-## For a detailed description of the following switches see
-## http://www.mediawiki.org/wiki/Extension:Email_notification 
-## and http://www.mediawiki.org/wiki/Extension:Email_notification
-## There are many more options for fine tuning available see
-## /includes/DefaultSettings.php
-## UPO means: this is also a user preference option
 $wgEnotifUserTalk = true; # UPO
 $wgEnotifWatchlist = true; # UPO
 $wgEmailAuthentication = true;
 
+## Database settings
 $wgDBtype           = "mysql";
 $wgDBserver         = WIZARD_DBSERVER;
 $wgDBname           = WIZARD_DBNAME;
@@ -68,15 +67,10 @@ $wgDBpassword       = WIZARD_DBPASSWORD;
 $wgDBprefix         = "";
 
 # MySQL table options to use during installation or update
-$wgDBTableOptions   = "TYPE=InnoDB";
+$wgDBTableOptions   = "ENGINE=InnoDB, DEFAULT CHARSET=binary";
 
 # Experimental charset support for MySQL 4.1/5.0.
-$wgDBmysql5 = false;
-
-# Postgres specific settings
-$wgDBport           = "5432";
-$wgDBmwschema       = "mediawiki";
-$wgDBts2schema      = "public";
+$wgDBmysql5 = true;
 
 ## Shared memory settings
 $wgMainCacheType = CACHE_NONE;
@@ -88,6 +82,11 @@ $wgEnableUploads       = false;
 $wgUseImageMagick = true;
 $wgImageMagickConvertCommand = "/usr/bin/convert";
 
+## If you use ImageMagick (or any other shell command) on a
+## Linux server, this will need to be set to the name of an
+## available UTF-8 locale
+$wgShellLocale = "en_US.utf8";
+
 ## If you want to use image uploads under safe mode,
 ## create the directories images/archive, images/thumb and
 ## images/temp, and make them all writable. Then uncomment
@@ -98,11 +97,11 @@ $wgImageMagickConvertCommand = "/usr/bin/convert";
 ## you can enable inline LaTeX equations:
 $wgUseTeX           = false;
 
-$wgLocalInterwiki   = $wgSitename;
+$wgLocalInterwiki   = strtolower( $wgSitename );
 
 $wgLanguageCode = "en";
 
-$wgProxyKey = WIZARD_SECRETKEY;
+$wgSecretKey = WIZARD_SECRETKEY;
 
 ## Default skin: you can change the default skin. Use the internal symbolic
 ## names, ie 'standard', 'nostalgia', 'cologneblue', 'monobook':
@@ -122,6 +121,4 @@ $wgDiff3 = "/usr/bin/diff3";
 
 # When you make changes to this configuration file, this will make
 # sure that cached pages are cleared.
-$configdate = gmdate( 'YmdHis', @filemtime( __FILE__ ) );
-$wgCacheEpoch = max( $wgCacheEpoch, $configdate );
-	
+$wgCacheEpoch = max( $wgCacheEpoch, gmdate( 'YmdHis', @filemtime( __FILE__ ) ) );

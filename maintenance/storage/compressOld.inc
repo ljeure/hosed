@@ -1,11 +1,8 @@
 <?php
 /**
- * @addtogroup Maintenance
+ * @file
+ * @ingroup Maintenance ExternalStorage
  */
-
-/** */
-require_once( 'Revision.php' );
-require_once( 'ExternalStoreDB.php' );
 
 /** @todo document */
 function compressOldPages( $start = 0, $extdb = '' ) {
@@ -15,7 +12,7 @@ function compressOldPages( $start = 0, $extdb = '' ) {
 	print "Starting from old_id $start...\n";
 	$dbw = wfGetDB( DB_MASTER );
 	do {
-		$res = $dbw->select( 'text', array( 'old_id','old_flags','old_namespace','old_title','old_text' ),
+		$res = $dbw->select( 'text', array( 'old_id','old_flags','old_text' ),
 			"old_id>=$start", $fname, array( 'ORDER BY' => 'old_id', 'LIMIT' => $chunksize, 'FOR UPDATE' ) );
 		if( $dbw->numRows( $res ) == 0 ) {
 			break;
@@ -69,7 +66,7 @@ define( 'LS_INDIVIDUAL', 0 );
 define( 'LS_CHUNKED', 1 );
 
 /** @todo document */
-function compressWithConcat( $startId, $maxChunkSize, $maxChunkFactor, $factorThreshold, $beginDate,
+function compressWithConcat( $startId, $maxChunkSize, $beginDate, 
 	$endDate, $extdb="", $maxPageId = false )
 {
 	$fname = 'compressWithConcat';
@@ -197,7 +194,7 @@ function compressWithConcat( $startId, $maxChunkSize, $maxChunkFactor, $factorTh
 			$primaryOldid = $revs[$i]->rev_text_id;
 
 			# Get the text of each revision and add it to the object
-			for ( $j = 0; $j < $thisChunkSize && $chunk->isHappy( $maxChunkFactor, $factorThreshold ); $j++ ) {
+			for ( $j = 0; $j < $thisChunkSize && $chunk->isHappy(); $j++ ) {
 				$oldid = $revs[$i + $j]->rev_text_id;
 
 				# Get text
@@ -228,7 +225,7 @@ function compressWithConcat( $startId, $maxChunkSize, $maxChunkFactor, $factorTh
 						$stub = false;
 						print 'x';
 					} else {
-						$stub = $chunk->addItem( $text );
+						$stub = new HistoryBlobStub( $chunk->addItem( $text ) );
 						$stub->setLocation( $primaryOldid );
 						$stub->setReferrer( $oldid );
 						print '.';
@@ -300,4 +297,3 @@ function compressWithConcat( $startId, $maxChunkSize, $maxChunkFactor, $factorTh
 	}
 	return true;
 }
-?>

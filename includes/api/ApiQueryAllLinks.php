@@ -30,8 +30,8 @@ if (!defined('MEDIAWIKI')) {
 
 /**
  * Query module to enumerate links from all pages together.
- * 
- * @addtogroup API
+ *
+ * @ingroup API
  */
 class ApiQueryAllLinks extends ApiQueryGeneratorBase {
 
@@ -67,26 +67,37 @@ class ApiQueryAllLinks extends ApiQueryGeneratorBase {
 		$this->addTables('pagelinks');
 		$this->addWhereFld('pl_namespace', $params['namespace']);
 		
-		if (!is_null($params['from']))
-			$this->addWhere('pl_title>=' . $db->addQuotes(ApiQueryBase :: titleToKey($params['from'])));
-		if (isset ($params['prefix']))
-			$this->addWhere("pl_title LIKE '" . $db->escapeLike(ApiQueryBase :: titleToKey($params['prefix'])) . "%'");
+		if (!is_null($params['from']) && !is_null($params['continue']))
+			$this->dieUsage('alcontinue and alfrom cannot be used together', 'params');
+		if (!is_null($params['continue']))
+		{
+			$arr = explode('|', $params['continue']);
+			if(count($arr) != 2)
+				$this->dieUsage("Invalid continue parameter", 'badcontinue');
+			$from = $this->getDB()->strencode($this->titleToKey($arr[0]));
+			$id = intval($arr[1]);
+			$this->addWhere("pl_title > '$from' OR " .
+					"(pl_title = '$from' AND " .
+					"pl_from > $id)");
+		}		
 
-		if (is_null($resultPageSet)) {
-			$this->addFields(array (
-				'pl_namespace',
-				'pl_title'
-			));
-			$this->addFieldsIf('pl_from', $fld_ids);
-		} else {
-			$this->addFields('pl_from');
-			$pageids = array();
-		}
+		if (!is_null($params['from']))
+			$this->addWhere('pl_title>=' . $db->addQuotes($this->titlePartToKey($params['from'])));
+		if (isset ($params['prefix']))
+			$this->addWhere("pl_title LIKE '" . $db->escapeLike($this->titlePartToKey($params['prefix'])) . "%'");
+
+		$this->addFields(array (
+			'pl_title',
+		));
+		$this->addFieldsIf('pl_from', !$params['unique']);
 
 		$this->addOption('USE INDEX', 'pl_namespace');
 		$limit = $params['limit'];
 		$this->addOption('LIMIT', $limit+1);
-		$this->addOption('ORDER BY', 'pl_namespace, pl_title');
+		if($params['unique'])
+			$this->addOption('ORDER BY', 'pl_title');
+		else
+			$this->addOption('ORDER BY', 'pl_title, pl_from');
 
 		$res = $this->select(__METHOD__);
 
@@ -96,7 +107,10 @@ class ApiQueryAllLinks extends ApiQueryGeneratorBase {
 			if (++ $count > $limit) {
 				// We've reached the one extra which shows that there are additional pages to be had. Stop here...
 				// TODO: Security issue - if the user has no right to view next title, it will still be shown
-				$this->setContinueEnumParameter('from', ApiQueryBase :: keyToTitle($row->pl_title));
+				if($params['unique'])
+					$this->setContinueEnumParameter('from', $this->keyToTitle($row->pl_title));
+				else
+					$this->setContinueEnumParameter('continue', $this->keyToTitle($row->pl_title) . "|" . $row->pl_from);
 				break;
 			}
 
@@ -105,7 +119,7 @@ class ApiQueryAllLinks extends ApiQueryGeneratorBase {
 				if ($fld_ids)
 					$vals['fromid'] = intval($row->pl_from);
 				if ($fld_title) {
-					$title = Title :: makeTitle($row->pl_namespace, $row->pl_title);
+					$title = Title :: makeTitle($params['namespace'], $row->pl_title);
 					$vals['ns'] = intval($title->getNamespace());
 					$vals['title'] = $title->getPrefixedText();
 				}
@@ -125,8 +139,9 @@ class ApiQueryAllLinks extends ApiQueryGeneratorBase {
 		}
 	}
 
-	protected function getAllowedParams() {
+	public function getAllowedParams() {
 		return array (
+			'continue' => null,
 			'from' => null,
 			'prefix' => null,
 			'unique' => false,
@@ -152,18 +167,19 @@ class ApiQueryAllLinks extends ApiQueryGeneratorBase {
 		);
 	}
 
-	protected function getParamDescription() {
+	public function getParamDescription() {
 		return array (
 			'from' => 'The page title to start enumerating from.',
 			'prefix' => 'Search for all page titles that begin with this value.',
 			'unique' => 'Only show unique links. Cannot be used with generator or prop=ids',
 			'prop' => 'What pieces of information to include',
 			'namespace' => 'The namespace to enumerate.',
-			'limit' => 'How many total links to return.'
+			'limit' => 'How many total links to return.',
+			'continue' => 'When more results are available, use this to continue.',
 		);
 	}
 
-	protected function getDescription() {
+	public function getDescription() {
 		return 'Enumerate all links that point to a given namespace';
 	}
 
@@ -174,6 +190,6 @@ class ApiQueryAllLinks extends ApiQueryGeneratorBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiQueryAllLinks.php 24453 2007-07-30 08:09:15Z yurik $';
+		return __CLASS__ . ': $Id: ApiQueryAllLinks.php 45850 2009-01-17 20:03:25Z catrope $';
 	}
 }

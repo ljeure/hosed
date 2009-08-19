@@ -1,13 +1,15 @@
 <?php
 /**
  * Contain a class for special pages
+ * @file
+ * @ingroup SpecialPages
  */
 
 /**
- * List of query page classes and their associated special pages, 
+ * List of query page classes and their associated special pages,
  * for periodic updates.
  *
- * DO NOT CHANGE THIS LIST without testing that 
+ * DO NOT CHANGE THIS LIST without testing that
  * maintenance/updateSpecialPages.php still works.
  */
 global $wgQueryPages; // not redundant
@@ -19,6 +21,7 @@ $wgQueryPages = array(
 	array( 'DeadendPagesPage',              'Deadendpages'                  ),
 	array( 'DisambiguationsPage',           'Disambiguations'               ),
 	array( 'DoubleRedirectsPage',           'DoubleRedirects'               ),
+	array( 'LinkSearchPage',                'LinkSearch'                    ),
 	array( 'ListredirectsPage',             'Listredirects'					),
 	array( 'LonelyPagesPage',               'Lonelypages'                   ),
 	array( 'LongPagesPage',                 'Longpages'                     ),
@@ -29,7 +32,6 @@ $wgQueryPages = array(
 	array( 'MostlinkedPage',                'Mostlinked'                    ),
 	array( 'MostrevisionsPage',             'Mostrevisions'                 ),
 	array( 'FewestrevisionsPage',           'Fewestrevisions'               ),
-	array( 'NewPagesPage',                  'Newpages'                      ),
 	array( 'ShortPagesPage',                'Shortpages'                    ),
 	array( 'UncategorizedCategoriesPage',   'Uncategorizedcategories'       ),
 	array( 'UncategorizedPagesPage',        'Uncategorizedpages'            ),
@@ -38,7 +40,9 @@ $wgQueryPages = array(
 	array( 'UnusedCategoriesPage',          'Unusedcategories'              ),
 	array( 'UnusedimagesPage',              'Unusedimages'                  ),
 	array( 'WantedCategoriesPage',          'Wantedcategories'              ),
+	array( 'WantedFilesPage',               'Wantedfiles'                   ),
 	array( 'WantedPagesPage',               'Wantedpages'                   ),
+	array( 'WantedTemplatesPage',          'Wantedtemplates'              ),
 	array( 'UnwatchedPagesPage',            'Unwatchedpages'                ),
 	array( 'UnusedtemplatesPage',           'Unusedtemplates' 				),
 	array( 'WithoutInterwikiPage',			'Withoutinterwiki'				),
@@ -54,7 +58,7 @@ if ( !$wgDisableCounters )
  * This is a class for doing query pages; since they're almost all the same,
  * we factor out some of the functionality into a superclass, and let
  * subclasses derive from it.
- * @addtogroup SpecialPage
+ * @ingroup SpecialPage
  */
 class QueryPage {
 	/**
@@ -236,7 +240,7 @@ class QueryPage {
 				if ( isset( $row->value ) ) {
 					$value = $row->value;
 				} else {
-					$value = '';
+					$value = 0;
 				}
 
 				$insertSql .= '(' .
@@ -305,25 +309,23 @@ class QueryPage {
 				# Fetch the timestamp of this update
 				$tRes = $dbr->select( 'querycache_info', array( 'qci_timestamp' ), array( 'qci_type' => $type ), $fname );
 				$tRow = $dbr->fetchObject( $tRes );
-				
+
 				if( $tRow ) {
 					$updated = $wgLang->timeAndDate( $tRow->qci_timestamp, true, true );
-					$cacheNotice = wfMsg( 'perfcachedts', $updated );
 					$wgOut->addMeta( 'Data-Cache-Time', $tRow->qci_timestamp );
 					$wgOut->addInlineScript( "var dataCacheTime = '{$tRow->qci_timestamp}';" );
+					$wgOut->addWikiMsg( 'perfcachedts', $updated );
 				} else {
-					$cacheNotice = wfMsg( 'perfcached' );
+					$wgOut->addWikiMsg( 'perfcached' );
 				}
-	
-				$wgOut->addWikiText( $cacheNotice );
-				
+
 				# If updates on this page have been disabled, let the user know
 				# that the data set won't be refreshed for now
 				global $wgDisableQueryPageUpdate;
 				if( is_array( $wgDisableQueryPageUpdate ) && in_array( $this->getName(), $wgDisableQueryPageUpdate ) ) {
-					$wgOut->addWikiText( wfMsg( 'querypage-no-updates' ) );
+					$wgOut->addWikiMsg( 'querypage-no-updates' );
 				}
-				
+
 			}
 
 		}
@@ -335,26 +337,26 @@ class QueryPage {
 
 		$this->preprocessResults( $dbr, $res );
 
-		$wgOut->addHtml( XML::openElement( 'div', array('class' => 'mw-spcontent') ) );
-		
+		$wgOut->addHTML( XML::openElement( 'div', array('class' => 'mw-spcontent') ) );
+
 		# Top header and navigation
 		if( $shownavigation ) {
-			$wgOut->addHtml( $this->getPageHeader() );
+			$wgOut->addHTML( $this->getPageHeader() );
 			if( $num > 0 ) {
-				$wgOut->addHtml( '<p>' . wfShowingResults( $offset, $num ) . '</p>' );
+				$wgOut->addHTML( '<p>' . wfShowingResults( $offset, $num ) . '</p>' );
 				# Disable the "next" link when we reach the end
 				$paging = wfViewPrevNext( $offset, $limit, $wgContLang->specialPage( $sname ),
 					wfArrayToCGI( $this->linkParameters() ), ( $num < $limit ) );
-				$wgOut->addHtml( '<p>' . $paging . '</p>' );
+				$wgOut->addHTML( '<p>' . $paging . '</p>' );
 			} else {
 				# No results to show, so don't bother with "showing X of Y" etc.
 				# -- just let the user know and give up now
-				$wgOut->addHtml( '<p>' . wfMsgHtml( 'specialpage-empty' ) . '</p>' );
-				$wgOut->addHtml( XML::closeElement( 'div' ) );
+				$wgOut->addHTML( '<p>' . wfMsgHtml( 'specialpage-empty' ) . '</p>' );
+				$wgOut->addHTML( XML::closeElement( 'div' ) );
 				return;
 			}
 		}
-		
+
 		# The actual results; specialist subclasses will want to handle this
 		# with more than a straight list, so we hand them the info, plus
 		# an OutputPage, and let them get on with it
@@ -367,14 +369,14 @@ class QueryPage {
 
 		# Repeat the paging links at the bottom
 		if( $shownavigation ) {
-			$wgOut->addHtml( '<p>' . $paging . '</p>' );
+			$wgOut->addHTML( '<p>' . $paging . '</p>' );
 		}
 
-		$wgOut->addHtml( XML::closeElement( 'div' ) );
-		
+		$wgOut->addHTML( XML::closeElement( 'div' ) );
+
 		return $num;
 	}
-	
+
 	/**
 	 * Format and output report results using the given information plus
 	 * OutputPage
@@ -388,12 +390,12 @@ class QueryPage {
 	 */
 	protected function outputResults( $out, $skin, $dbr, $res, $num, $offset ) {
 		global $wgContLang;
-	
+
 		if( $num > 0 ) {
 			$html = array();
 			if( !$this->listoutput )
 				$html[] = $this->openList( $offset );
-			
+
 			# $res might contain the whole 1,000 rows, so we read up to
 			# $num [should update this to use a Pager]
 			for( $i = 0; $i < $num && $row = $dbr->fetchObject( $res ); $i++ ) {
@@ -407,7 +409,7 @@ class QueryPage {
 						: "<li{$attr}>{$line}</li>\n";
 				}
 			}
-			
+
 			# Flush the final result
 			if( $this->tryLastResult() ) {
 				$row = null;
@@ -421,37 +423,47 @@ class QueryPage {
 						: "<li{$attr}>{$line}</li>\n";
 				}
 			}
-			
+
 			if( !$this->listoutput )
 				$html[] = $this->closeList();
-			
+
 			$html = $this->listoutput
 				? $wgContLang->listToText( $html )
 				: implode( '', $html );
-			
-			$out->addHtml( $html );
+
+			$out->addHTML( $html );
 		}
 	}
-	
+
 	function openList( $offset ) {
 		return "\n<ol start='" . ( $offset + 1 ) . "' class='special'>\n";
 	}
-	
+
 	function closeList() {
 		return "</ol>\n";
 	}
 
 	/**
 	 * Do any necessary preprocessing of the result object.
-	 * You should pass this by reference: &$db , &$res  [although probably no longer necessary in PHP5]
 	 */
-	function preprocessResults( &$db, &$res ) {}
+	function preprocessResults( $db, $res ) {}
 
 	/**
 	 * Similar to above, but packaging in a syndicated feed instead of a web page
 	 */
 	function doFeed( $class = '', $limit = 50 ) {
-		global $wgFeedClasses;
+		global $wgFeed, $wgFeedClasses;
+
+		if ( !$wgFeed ) {
+			global $wgOut;
+			$wgOut->addWikiMsg( 'feed-unavailable' );
+			return;
+		}
+		
+		global $wgFeedLimit;
+		if( $limit > $wgFeedLimit ) {
+			$limit = $wgFeedLimit;
+		}
 
 		if( isset($wgFeedClasses[$class]) ) {
 			$feed = new $wgFeedClasses[$class](
@@ -522,7 +534,7 @@ class QueryPage {
 	}
 
 	function feedDesc() {
-		return wfMsg( 'tagline' );
+		return wfMsgExt( 'tagline', 'parsemag' );
 	}
 
 	function feedUrl() {
@@ -530,5 +542,3 @@ class QueryPage {
 		return $title->getFullURL();
 	}
 }
-
-

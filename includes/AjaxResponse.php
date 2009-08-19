@@ -1,11 +1,18 @@
 <?php
+/**
+ * @file
+ * @ingroup Ajax
+ */
+
 if( !defined( 'MEDIAWIKI' ) ) {
 	die( 1 );
 }
 
 /**
- * @todo document
- * @addtogroup Ajax
+ * Handle responses for Ajax requests (send headers, print
+ * content, that sort of thing)
+ * 
+ * @ingroup Ajax
  */
 class AjaxResponse {
 
@@ -15,7 +22,7 @@ class AjaxResponse {
 	/** HTTP header Content-Type */
 	private $mContentType;
 
-	/** @todo document */
+	/** Disables output. Can be set by calling $AjaxResponse->disable() */
 	private $mDisabled;
 
 	/** Date for the HTTP header Last-modified */
@@ -99,7 +106,7 @@ class AjaxResponse {
 
 		if ( $this->mCacheDuration ) {
 
-			# If squid caches are configured, tell them to cache the response, 
+			# If squid caches are configured, tell them to cache the response,
 			# and tell the client to always check with the squid. Otherwise,
 			# tell the client to use a cached copy, without a way to purge it.
 
@@ -220,4 +227,3 @@ class AjaxResponse {
 		return true;
 	}
 }
-

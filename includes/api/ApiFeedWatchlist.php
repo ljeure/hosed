@@ -32,8 +32,8 @@ if (!defined('MEDIAWIKI')) {
  * This action allows users to get their watchlist items in RSS/Atom formats.
  * When executed, it performs a nested call to the API to get the needed data,
  * and formats it in a proper format.
- * 
- * @addtogroup API
+ *
+ * @ingroup API
  */
 class ApiFeedWatchlist extends ApiBase {
 
@@ -53,55 +53,62 @@ class ApiFeedWatchlist extends ApiBase {
 	 * Wrap the result as an RSS/Atom feed.
 	 */
 	public function execute() {
-		
-		global $wgFeedClasses, $wgSitename, $wgContLanguageCode;
+
+		global $wgFeedClasses, $wgFeedLimit, $wgSitename, $wgContLanguageCode;
 
 		try {
 			$params = $this->extractRequestParams();
-			
+
 			// limit to the number of hours going from now back
 			$endTime = wfTimestamp(TS_MW, time() - intval($params['hours'] * 60 * 60));
-	
-			// Prepare nested request
-			$fauxReq = new FauxRequest(array (
+
+			$dbr = wfGetDB( DB_SLAVE );
+			// Prepare parameters for nested request
+			$fauxReqArr = array (
 				'action' => 'query',
 				'meta' => 'siteinfo',
 				'siprop' => 'general',
 				'list' => 'watchlist',
 				'wlprop' => 'title|user|comment|timestamp',
 				'wldir' => 'older',		// reverse order - from newest to oldest
-				'wlend' => $endTime,	// stop at this time
-				'wllimit' => 50
-			));
-	
+				'wlend' => $dbr->timestamp($endTime),	// stop at this time
+				'wllimit' => (50 > $wgFeedLimit) ? $wgFeedLimit : 50
+			);
+
+			// Check for 'allrev' parameter, and if found, show all revisions to each page on wl.
+			if ( ! is_null ( $params['allrev'] ) )  $fauxReqArr['wlallrev'] = '';
+
+			// Create the request
+			$fauxReq = new FauxRequest ( $fauxReqArr );
+
 			// Execute
 			$module = new ApiMain($fauxReq);
 			$module->execute();
 
 			// Get data array
 			$data = $module->getResultData();
-	
+
 			$feedItems = array ();
 			foreach ($data['query']['watchlist'] as $info) {
 				$feedItems[] = $this->createFeedItem($info);
 			}
-	
+
 			$feedTitle = $wgSitename . ' - ' . wfMsgForContent('watchlist') . ' [' . $wgContLanguageCode . ']';
 			$feedUrl = SpecialPage::getTitleFor( 'Watchlist' )->getFullUrl();
-	
+
 			$feed = new $wgFeedClasses[$params['feedformat']] ($feedTitle, htmlspecialchars(wfMsgForContent('watchlist')), $feedUrl);
-	
+
 			ApiFormatFeedWrapper :: setResult($this->getResult(), $feed, $feedItems);
 
 		} catch (Exception $e) {
 
 			// Error results should not be cached
 			$this->getMain()->setCacheMaxAge(0);
-	
+
 			$feedTitle = $wgSitename . ' - Error - ' . wfMsgForContent('watchlist') . ' [' . $wgContLanguageCode . ']';
 			$feedUrl = SpecialPage::getTitleFor( 'Watchlist' )->getFullUrl();
-	
-			$feedFormat = isset($params['feedformat']) ? $params['feedformat'] : 'rss'; 
+
+			$feedFormat = isset($params['feedformat']) ? $params['feedformat'] : 'rss';
 			$feed = new $wgFeedClasses[$feedFormat] ($feedTitle, htmlspecialchars(wfMsgForContent('watchlist')), $feedUrl);
 
 
@@ -131,7 +138,7 @@ class ApiFeedWatchlist extends ApiBase {
 		return new FeedItem($titleStr, $completeText, $titleUrl, $timestamp, $user);
 	}
 
-	protected function getAllowedParams() {
+	public function getAllowedParams() {
 		global $wgFeedClasses;
 		$feedFormatNames = array_keys($wgFeedClasses);
 		return array (
@@ -144,18 +151,20 @@ class ApiFeedWatchlist extends ApiBase {
 				ApiBase :: PARAM_TYPE => 'integer',
 				ApiBase :: PARAM_MIN => 1,
 				ApiBase :: PARAM_MAX => 72,
-			)
+			),
+			'allrev' => null
 		);
 	}
 
-	protected function getParamDescription() {
+	public function getParamDescription() {
 		return array (
 			'feedformat' => 'The format of the feed',
-			'hours' => 'List pages modified within this many hours from now'
+			'hours'      => 'List pages modified within this many hours from now',
+			'allrev'     => 'Include multiple revisions of the same page within given timeframe.'
 		);
 	}
 
-	protected function getDescription() {
+	public function getDescription() {
 		return 'This module returns a watchlist feed';
 	}
 
@@ -166,7 +175,6 @@ class ApiFeedWatchlist extends ApiBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiFeedWatchlist.php 23531 2007-06-29 01:19:14Z simetrical $';
+		return __CLASS__ . ': $Id: ApiFeedWatchlist.php 35098 2008-05-20 17:13:28Z ialex $';
 	}
 }
-

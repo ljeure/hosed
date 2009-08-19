@@ -18,7 +18,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
  *
- * @addtogroup SpecialPage
+ * @file
+ * @ingroup Dump Maintenance
  */
 
 $originalDir = getcwd();
@@ -54,6 +55,7 @@ if( isset( $options['end'] ) ) {
 }
 $dumper->skipHeader = isset( $options['skip-header'] );
 $dumper->skipFooter = isset( $options['skip-footer'] );
+$dumper->dumpUploads = isset( $options['uploads'] );
 
 $textMode = isset( $options['stub'] ) ? WikiExporter::STUB : WikiExporter::TEXT;
 
@@ -61,8 +63,10 @@ if( isset( $options['full'] ) ) {
 	$dumper->dump( WikiExporter::FULL, $textMode );
 } elseif( isset( $options['current'] ) ) {
 	$dumper->dump( WikiExporter::CURRENT, $textMode );
+} elseif( isset( $options['logs'] ) ) {
+	$dumper->dump( WikiExporter::LOGS );
 } else {
-	$dumper->progress( <<<END
+	$dumper->progress( <<<ENDS
 This script dumps the wiki page database into an XML interchange wrapper
 format for export or backup.
 
@@ -72,6 +76,7 @@ Usage: php dumpBackup.php <action> [<options>]
 Actions:
   --full      Dump complete history of every page.
   --current   Includes only the latest revision of each page.
+  --logs      Dump action logs for every page.
 
 Options:
   --quiet     Don't dump status reports to stderr.
@@ -83,6 +88,7 @@ Options:
   --skip-header Don't output the <mediawiki> header
   --skip-footer Don't output the </mediawiki> footer
   --stub      Don't perform old_text lookups; for 2-pass dump
+  --uploads   Include upload records (experimental)
 
 Fancy stuff:
   --plugin=<class>[:<file>]   Load a dump plugin class
@@ -90,7 +96,7 @@ Fancy stuff:
                               <type>s: file, gzip, bzip2, 7zip
   --filter=<type>[:<options>] Add a filter on an output branch
 
-END
+ENDS
 );
 }
 

@@ -1,14 +1,16 @@
 <?php
 /** Arabic (العربية)
  *
- * @addtogroup Language
+ * @ingroup Language
  *
  * @author Niklas Laxström
  */
 class LanguageAr extends Language {
 
-	function convertPlural( $count, $w1, $w2, $w3, $w4, $w5) {
-		$forms = array($w1, $w2, $w3, $w4, $w5);
+	function convertPlural( $count, $forms ) {
+		if ( !count($forms) ) { return ''; }
+		$forms = $this->preConvertPlural( $forms, 5 );
+
 		if ( $count == 1 ) {
 			$index = 0;
 		} elseif( $count == 2 ) {
@@ -22,6 +24,4 @@ class LanguageAr extends Language {
 		}
 		return $forms[$index];
 	}
-
 }
-

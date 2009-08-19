@@ -1,7 +1,6 @@
 <?php
 /**
- * @addtogroup Media
- *
+ * @ingroup Media
  * @author Ævar Arnfjörð Bjarmason <avarab@gmail.com>
  * @copyright Copyright © 2005, Ævar Arnfjörð Bjarmason
  * @license http://www.gnu.org/copyleft/gpl.html GNU General Public License
@@ -26,7 +25,7 @@
 
 /**
  * @todo document (e.g. one-sentence class-overview description)
- * @addtogroup Media
+ * @ingroup Media
  */
 class Exif {
 	//@{
@@ -49,7 +48,7 @@ class Exif {
 	/**
 	 * Exif tags grouped by category, the tagname itself is the key and the type
 	 * is the value, in the case of more than one possible value type they are
-	 * seperated by commas.
+	 * separated by commas.
 	 */
 	var $mExifTags;
 
@@ -431,7 +430,7 @@ class Exif {
 		if ( is_array( $in ) ) {
 			return false;
 		}
-		
+
 		if ( preg_match( "/[^\x0a\x20-\x7e]/", $in ) ) {
 			$this->debug( $in, __FUNCTION__, 'found a character not in our whitelist' );
 			return false;
@@ -557,8 +556,8 @@ class Exif {
 	 *
 	 * @private
 	 *
-	 * @param $in Mixed: 
-	 * @param $fname String: 
+	 * @param $in Mixed:
+	 * @param $fname String:
 	 * @param $action Mixed: , default NULL.
 	 */
 	function debug( $in, $fname, $action = NULL ) {
@@ -604,7 +603,7 @@ class Exif {
 
 /**
  * @todo document (e.g. one-sentence class-overview description)
- * @addtogroup Media
+ * @ingroup Media
  */
 class FormatExif {
 	/**
@@ -781,7 +780,28 @@ class FormatExif {
 				}
 				break;
 
-			// TODO: Flash
+			case 'Flash':
+				$flashDecode = array(
+					'fired'    => $val & bindec( '00000001' ),
+					'return'   => ($val & bindec( '00000110' )) >> 1,
+					'mode'     => ($val & bindec( '00011000' )) >> 3,
+					'function' => ($val & bindec( '00100000' )) >> 5,
+					'redeye'   => ($val & bindec( '01000000' )) >> 6,
+//					'reserved' => ($val & bindec( '10000000' )) >> 7,
+				);
+
+				# We do not need to handle unknown values since all are used.
+				foreach( $flashDecode as $subTag => $subValue ) {
+					# We do not need any message for zeroed values.
+					if( $subTag != 'fired' && $subValue == 0) {
+						continue;
+					}
+					$fullTag = $tag . '-' . $subTag ;
+					$flashMsgs[] = $this->msg( $fullTag, $subValue );
+				}
+				$tags[$tag] = $wgLang->commaList( $flashMsgs );
+			break;
+
 			case 'FocalPlaneResolutionUnit':
 				switch( $val ) {
 				case 2:
@@ -1130,5 +1150,3 @@ define( 'MW_EXIF_RATIONAL', Exif::RATIONAL );
 define( 'MW_EXIF_UNDEFINED', Exif::UNDEFINED );
 define( 'MW_EXIF_SLONG', Exif::SLONG );
 define( 'MW_EXIF_SRATIONAL', Exif::SRATIONAL );
-
-

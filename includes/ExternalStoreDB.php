@@ -1,12 +1,4 @@
 <?php
-/**
- *
- *
- * DB accessable external objects
- *
- */
-
-
 
 /**
  * External database storage will use one (or more) separate connection pools
@@ -28,16 +20,15 @@ $wgExternalLoadBalancers = array();
 global $wgExternalBlobCache;
 $wgExternalBlobCache = array();
 
+/**
+ * DB accessable external objects
+ * @ingroup ExternalStorage
+ */
 class ExternalStoreDB {
 
 	/** @todo Document.*/
 	function &getLoadBalancer( $cluster ) {
-		global $wgExternalServers, $wgExternalLoadBalancers;
-		if ( !array_key_exists( $cluster, $wgExternalLoadBalancers ) ) {
-			$wgExternalLoadBalancers[$cluster] = LoadBalancer::newFromParams( $wgExternalServers[$cluster] );
-		}
-		$wgExternalLoadBalancers[$cluster]->allowLagged(true);
-		return $wgExternalLoadBalancers[$cluster];
+		return wfGetLBFactory()->getExternalLB( $cluster );
 	}
 
 	/** @todo Document.*/
@@ -65,7 +56,7 @@ class ExternalStoreDB {
 	 * Fetch data from given URL
 	 * @param string $url An url of the form DB://cluster/id or DB://cluster/id/itemid for concatened storage.
 	 */
-	function fetchFromURL($url) {
+	function fetchFromURL( $url ) {
 		$path = explode( '/', $url );
 		$cluster  = $path[2];
 		$id	  = $path[3];
@@ -131,12 +122,11 @@ class ExternalStoreDB {
 	 * @return string URL
 	 */
 	function store( $cluster, $data ) {
-		$fname = 'ExternalStoreDB::store';
-
-		$dbw =& $this->getMaster( $cluster );
-
+		$dbw = $this->getMaster( $cluster );
 		$id = $dbw->nextSequenceValue( 'blob_blob_id_seq' );
-		$dbw->insert( $this->getTable( $dbw ), array( 'blob_id' => $id, 'blob_text' => $data ), $fname );
+		$dbw->insert( $this->getTable( $dbw ), 
+			array( 'blob_id' => $id, 'blob_text' => $data ), 
+			__METHOD__ );
 		$id = $dbw->insertId();
 		if ( $dbw->getFlag( DBO_TRX ) ) {
 			$dbw->immediateCommit();
@@ -144,4 +134,3 @@ class ExternalStoreDB {
 		return "DB://$cluster/$id";
 	}
 }
-

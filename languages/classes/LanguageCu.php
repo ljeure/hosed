@@ -1,10 +1,9 @@
 <?php
-/** Old Church Slavonic (Ѩзыкъ словѣньскъ)
-  *
-  * @addtogroup Language
-  */
 
-/* Please, see Language.php for general function comments */
+/** Old Church Slavonic (Ѩзыкъ словѣньскъ)
+ *
+ * @ingroup Language
+ */
 class LanguageCu extends Language {
 	# Convert from the nominative form of a noun to some other case
 	# Invoked with {{grammar:case|word}}
@@ -35,15 +34,16 @@ class LanguageCu extends Language {
 		return $word;
 	}
 
-	function convertPlural( $count, $wordform1, $wordform2, $wordform3, $wordform4, $w5) {
+	function convertPlural( $count, $forms ) {
+		if ( !count($forms) ) { return ''; }
+		$forms = $this->preConvertPlural( $forms, 4 );
+
 		switch ($count % 10) {
-			case 1: return $wordform1;
-			case 2: return $wordform2;
-			case 3: return $wordform3;
-			case 4: return $wordform3;
-			default: return $wordform4;
+			case 1:  return $forms[0];
+			case 2:  return $forms[1];
+			case 3:
+			case 4:  return $forms[2];
+			default: return $forms[3];
 		}
 	}
-
 }
-

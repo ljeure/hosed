@@ -33,17 +33,17 @@ if (!defined('MEDIAWIKI')) {
  * It simply wraps a nested array() structure, adding some functions to simplify array's modifications.
  * As various modules execute, they add different pieces of information to this result,
  * structuring it as it will be given to the client.
- * 
+ *
  * Each subarray may either be a dictionary - key-value pairs with unique keys,
  * or lists, where the items are added using $data[] = $value notation.
- * 
+ *
  * There are two special key values that change how XML output is generated:
  *   '_element' This key sets the tag name for the rest of the elements in the current array.
  *              It is only inserted if the formatter returned true for getNeedsRawData()
  *   '*'        This key has special meaning only to the XML formatter, and is outputed as is
- * 				for all others. In XML it becomes the content of the current element.          
- * 
- * @addtogroup API
+ * 				for all others. In XML it becomes the content of the current element.
+ *
+ * @ingroup API
  */
 class ApiResult extends ApiBase {
 
@@ -64,15 +64,15 @@ class ApiResult extends ApiBase {
 	public function reset() {
 		$this->mData = array ();
 	}
-	
+
 	/**
-	 * Call this function when special elements such as '_element' 
-	 * are needed by the formatter, for example in XML printing. 
+	 * Call this function when special elements such as '_element'
+	 * are needed by the formatter, for example in XML printing.
 	 */
 	public function setRawMode() {
 		$this->mIsRawMode = true;
 	}
-	
+
 	/**
 	 * Returns true if the result is being created for the formatter that requested raw data.
 	 */
@@ -100,7 +100,7 @@ class ApiResult extends ApiBase {
 		}
 		elseif (is_array($arr[$name]) && is_array($value)) {
 			$merged = array_intersect_key($arr[$name], $value);
-			if (empty ($merged))
+			if (!count($merged))
 				$arr[$name] += $value;
 			else
 				ApiBase :: dieDebug(__METHOD__, "Attempting to merge element $name");
@@ -141,10 +141,26 @@ class ApiResult extends ApiBase {
 	}
 
 	/**
+	 * Calls setIndexedTagName() on $arr and each sub-array
+	 */
+	public function setIndexedTagName_recursive(&$arr, $tag)
+	{
+			if(!is_array($arr))
+					return;
+			foreach($arr as &$a)
+			{
+					if(!is_array($a))
+							continue;
+					$this->setIndexedTagName($a, $tag);
+					$this->setIndexedTagName_recursive($a, $tag);
+			}
+	}
+
+	/**
 	 * Add value to the output data at the given path.
 	 * Path is an indexed array, each element specifing the branch at which to add the new value
 	 * Setting $path to array('a','b','c') is equivalent to data['a']['b']['c'] = $value
-	 * If $name is empty, the $value is added as a next list element data[] = $value  
+	 * If $name is empty, the $value is added as a next list element data[] = $value
 	 */
 	public function addValue($path, $name, $value) {
 
@@ -164,10 +180,19 @@ class ApiResult extends ApiBase {
 			}
 		}
 
-		if (empty($name))
+		if (!$name)
 			$data[] = $value;	// Add list element
 		else
 			ApiResult :: setElement($data, $name, $value);	// Add named element
+	}
+
+	/**
+	 * Ensure all values in this result are valid UTF-8.
+	 */
+	public function cleanUpUTF8()
+	{
+		$data = & $this->getData();
+		array_walk_recursive($data, array('UtfNormal', 'cleanUp'));
 	}
 
 	public function execute() {
@@ -175,7 +200,34 @@ class ApiResult extends ApiBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiResult.php 23531 2007-06-29 01:19:14Z simetrical $';
+		return __CLASS__ . ': $Id: ApiResult.php 45752 2009-01-14 21:36:57Z catrope $';
 	}
 }
 
+/* For compatibility with PHP versions < 5.1.0, define our own array_intersect_key function. */
+if (!function_exists('array_intersect_key')) {
+	function array_intersect_key($isec, $keys) {
+		$argc = func_num_args();
+
+		if ($argc > 2) {
+			for ($i = 1; $isec && $i < $argc; $i++) {
+				$arr = func_get_arg($i);
+
+				foreach (array_keys($isec) as $key) {
+					if (!isset($arr[$key]))
+						unset($isec[$key]);
+				}
+			}
+
+			return $isec;
+		} else {
+			$res = array();
+			foreach (array_keys($isec) as $key) {
+				if (isset($keys[$key]))
+					$res[$key] = $isec[$key];
+			}
+
+			return $res;
+		}
+	}
+}

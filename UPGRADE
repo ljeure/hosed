@@ -4,14 +4,14 @@ specific problems, check
 * the documentation at http://www.mediawiki.org
 * the mediawiki-l mailing list archive at
   http://lists.wikimedia.org/pipermail/mediawiki-l/
-* the bug tracker at http://bugzilla.wikimedia.org
+* the bug tracker at https://bugzilla.wikimedia.org
 
 for information and workarounds to common issues.
 
 == Overview ==
 
 Comprehensive documentation on upgrading to the latest version of the software
-is available at http://www.mediawiki.org/wiki/Manual:Upgrading_MediaWiki.
+is available at http://www.mediawiki.org/wiki/Manual:Upgrading.
 
 === Consult the release notes ===
 
@@ -66,6 +66,11 @@ can change between release branches, e.g. $wgDisableUploads in 1.4 is replaced
 with $wgEnableUploads in later versions. When upgrading, consult the release
 notes to check for configuration changes which would alter the expected
 behaviour of MediaWiki.
+
+=== Check installed extensions ===
+In MediaWiki 1.14 some extensions are migrated into the core. Please see the
+RELEASE-NOTES section "Migrated extensions" and disable these extensions in your
+localSettings.php
 
 === Test ===
 

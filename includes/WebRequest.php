@@ -23,7 +23,7 @@
 
 
 /**
- * Some entry points may use this file without first enabling the 
+ * Some entry points may use this file without first enabling the
  * autoloader.
  */
 if ( !function_exists( '__autoload' ) ) {
@@ -39,13 +39,25 @@ if ( !function_exists( '__autoload' ) ) {
  * not create a second WebRequest object; make a FauxRequest object if
  * you want to pass arbitrary data to some function in place of the web
  * input.
- *
+ * 
+ * @ingroup HTTP
  */
 class WebRequest {
+	var $data = array();
+	var $headers;
+	private $_response;
+
 	function __construct() {
+		/// @fixme This preemptive de-quoting can interfere with other web libraries
+		///        and increases our memory footprint. It would be cleaner to do on
+		///        demand; but currently we have no wrapper for $_SERVER etc.
 		$this->checkMagicQuotes();
+
+		// POST overrides GET data
+		// We don't use $_REQUEST here to avoid interference from cookies...
+		$this->data = $_POST + $_GET;
 	}
-	
+
 	/**
 	 * Check for title, action, and/or variant data in the URL
 	 * and interpolate it into the GET variables.
@@ -68,16 +80,27 @@ class WebRequest {
 				}
 				$a = parse_url( $url );
 				if( $a ) {
-					$path = $a['path'];
-					
+					$path = isset( $a['path'] ) ? $a['path'] : '';
+
+					global $wgScript;
+					if( $path == $wgScript ) {
+						// Script inside a rewrite path?
+						// Abort to keep from breaking...
+						return;
+					}
+					// Raw PATH_INFO style
+					$matches = $this->extractTitle( $path, "$wgScript/$1" );
+
 					global $wgArticlePath;
-					$matches = $this->extractTitle( $path, $wgArticlePath );
-					
+					if( !$matches && $wgArticlePath ) {
+						$matches = $this->extractTitle( $path, $wgArticlePath );
+					}
+
 					global $wgActionPaths;
-					if( !$matches && $wgActionPaths) {
+					if( !$matches && $wgActionPaths ) {
 						$matches = $this->extractTitle( $path, $wgActionPaths, 'action' );
 					}
-					
+
 					global $wgVariantArticlePath, $wgContLang;
 					if( !$matches && $wgVariantArticlePath ) {
 						$variantPaths = array();
@@ -93,25 +116,25 @@ class WebRequest {
 				// http://bugs.php.net/bug.php?id=31892
 				// Also reported when ini_get('cgi.fix_pathinfo')==false
 				$matches['title'] = substr( $_SERVER['ORIG_PATH_INFO'], 1 );
-				
+
 			} elseif ( isset( $_SERVER['PATH_INFO'] ) && ($_SERVER['PATH_INFO'] != '') ) {
 				// Regular old PATH_INFO yay
 				$matches['title'] = substr( $_SERVER['PATH_INFO'], 1 );
 			}
 			foreach( $matches as $key => $val) {
-				$_GET[$key] = $_REQUEST[$key] = $val;
+				$this->data[$key] = $_GET[$key] = $_REQUEST[$key] = $val;
 			}
 		}
 	}
-	
+
 	/**
 	 * Internal URL rewriting function; tries to extract page title and,
 	 * optionally, one other fixed parameter value from a URL path.
 	 *
-	 * @param string $path the URL path given from the client
-	 * @param array $bases one or more URLs, optionally with $1 at the end
-	 * @param string $key if provided, the matching key in $bases will be
-	 *        passed on as the value of this URL parameter
+	 * @param $path string: the URL path given from the client
+	 * @param $bases array: one or more URLs, optionally with $1 at the end
+	 * @param $key string: if provided, the matching key in $bases will be
+	 *             passed on as the value of this URL parameter
 	 * @return array of URL variables to interpolate; empty if no match
 	 */
 	private function extractTitle( $path, $bases, $key=false ) {
@@ -132,13 +155,11 @@ class WebRequest {
 		}
 		return array();
 	}
-	
-	private $_response;
 
 	/**
 	 * Recursively strips slashes from the given array;
 	 * used for undoing the evil that is magic_quotes_gpc.
-	 * @param array &$arr will be modified
+	 * @param $arr array: will be modified
 	 * @return array the original array
 	 * @private
 	 */
@@ -161,7 +182,7 @@ class WebRequest {
 	 * @private
 	 */
 	function checkMagicQuotes() {
-		if ( get_magic_quotes_gpc() ) {
+		if ( function_exists( 'get_magic_quotes_gpc' ) && get_magic_quotes_gpc() ) {
 			$this->fix_magic_quotes( $_COOKIE );
 			$this->fix_magic_quotes( $_ENV );
 			$this->fix_magic_quotes( $_GET );
@@ -173,7 +194,7 @@ class WebRequest {
 
 	/**
 	 * Recursively normalizes UTF-8 strings in the given array.
-	 * @param array $data string or array
+	 * @param $data string or array
 	 * @return cleaned-up version of the given
 	 * @private
 	 */
@@ -191,9 +212,9 @@ class WebRequest {
 	/**
 	 * Fetch a value from the given array or return $default if it's not set.
 	 *
-	 * @param array $arr
-	 * @param string $name
-	 * @param mixed $default
+	 * @param $arr array
+	 * @param $name string
+	 * @param $default mixed
 	 * @return mixed
 	 * @private
 	 */
@@ -216,16 +237,16 @@ class WebRequest {
 
 	/**
 	 * Fetch a scalar from the input or return $default if it's not set.
-	 * Returns a string. Arrays are discarded. Useful for 
-	 * non-freeform text inputs (e.g. predefined internal text keys 
+	 * Returns a string. Arrays are discarded. Useful for
+	 * non-freeform text inputs (e.g. predefined internal text keys
 	 * selected by a drop-down menu). For freeform input, see getText().
 	 *
-	 * @param string $name
-	 * @param string $default optional default (or NULL)
+	 * @param $name string
+	 * @param $default string: optional default (or NULL)
 	 * @return string
 	 */
 	function getVal( $name, $default = NULL ) {
-		$val = $this->getGPCVal( $_REQUEST, $name, $default );
+		$val = $this->getGPCVal( $this->data, $name, $default );
 		if( is_array( $val ) ) {
 			$val = $default;
 		}
@@ -235,33 +256,45 @@ class WebRequest {
 			return (string)$val;
 		}
 	}
+	
+	/**
+	 * Set an aribtrary value into our get/post data.
+	 * @param $key string Key name to use
+	 * @param $value mixed Value to set
+	 * @return mixed old value if one was present, null otherwise
+	 */
+	function setVal( $key, $value ) {
+		$ret = isset( $this->data[$key] ) ? $this->data[$key] : null;
+		$this->data[$key] = $value;
+		return $ret;
+	}
 
 	/**
 	 * Fetch an array from the input or return $default if it's not set.
 	 * If source was scalar, will return an array with a single element.
 	 * If no source and no default, returns NULL.
 	 *
-	 * @param string $name
-	 * @param array $default optional default (or NULL)
+	 * @param $name string
+	 * @param $default array: optional default (or NULL)
 	 * @return array
 	 */
 	function getArray( $name, $default = NULL ) {
-		$val = $this->getGPCVal( $_REQUEST, $name, $default );
+		$val = $this->getGPCVal( $this->data, $name, $default );
 		if( is_null( $val ) ) {
 			return null;
 		} else {
 			return (array)$val;
 		}
 	}
-	
+
 	/**
 	 * Fetch an array of integers, or return $default if it's not set.
 	 * If source was scalar, will return an array with a single element.
 	 * If no source and no default, returns NULL.
 	 * If an array is returned, contents are guaranteed to be integers.
 	 *
-	 * @param string $name
-	 * @param array $default option default (or NULL)
+	 * @param $name string
+	 * @param $default array: option default (or NULL)
 	 * @return array of ints
 	 */
 	function getIntArray( $name, $default = NULL ) {
@@ -276,8 +309,8 @@ class WebRequest {
 	 * Fetch an integer value from the input or return $default if not set.
 	 * Guaranteed to return an integer; non-numeric input will typically
 	 * return 0.
-	 * @param string $name
-	 * @param int $default
+	 * @param $name string
+	 * @param $default int
 	 * @return int
 	 */
 	function getInt( $name, $default = 0 ) {
@@ -288,7 +321,7 @@ class WebRequest {
 	 * Fetch an integer value from the input or return null if empty.
 	 * Guaranteed to return an integer or null; non-numeric input will
 	 * typically return null.
-	 * @param string $name
+	 * @param $name string
 	 * @return int
 	 */
 	function getIntOrNull( $name ) {
@@ -302,8 +335,8 @@ class WebRequest {
 	 * Fetch a boolean value from the input or return $default if not set.
 	 * Guaranteed to return true or false, with normal PHP semantics for
 	 * boolean interpretation of strings.
-	 * @param string $name
-	 * @param bool $default
+	 * @param $name string
+	 * @param $default bool
 	 * @return bool
 	 */
 	function getBool( $name, $default = false ) {
@@ -314,7 +347,7 @@ class WebRequest {
 	 * Return true if the named value is set in the input, whatever that
 	 * value is (even "0"). Return false if the named value is not set.
 	 * Example use is checking for the presence of check boxes in forms.
-	 * @param string $name
+	 * @param $name string
 	 * @return bool
 	 */
 	function getCheck( $name ) {
@@ -329,11 +362,11 @@ class WebRequest {
 	 * set. \r is stripped from the text, and with some language modules there
 	 * is an input transliteration applied. This should generally be used for
 	 * form <textarea> and <input> fields. Used for user-supplied freeform text
-	 * input (for which input transformations may be required - e.g. Esperanto 
+	 * input (for which input transformations may be required - e.g. Esperanto
 	 * x-coding).
 	 *
-	 * @param string $name
-	 * @param string $default optional
+	 * @param $name string
+	 * @param $default string: optional
 	 * @return string
 	 */
 	function getText( $name, $default = '' ) {
@@ -351,7 +384,7 @@ class WebRequest {
 	function getValues() {
 		$names = func_get_args();
 		if ( count( $names ) == 0 ) {
-			$names = array_keys( $_REQUEST );
+			$names = array_keys( $this->data );
 		}
 
 		$retVal = array();
@@ -470,6 +503,26 @@ class WebRequest {
 		return htmlspecialchars( $this->appendQuery( $query ) );
 	}
 
+	function appendQueryValue( $key, $value, $onlyquery = false ) {
+		return $this->appendQueryArray( array( $key => $value ), $onlyquery );
+	}
+
+	/**
+	 * Appends or replaces value of query variables.
+	 * @param $array Array of values to replace/add to query
+	 * @param $onlyquery Bool: whether to only return the query string and not
+	 *                   the complete URL
+	 * @return string
+	 */
+	function appendQueryArray( $array, $onlyquery = false ) {
+		global $wgTitle;
+		$newquery = $_GET;
+		unset( $newquery['title'] );
+		$newquery = array_merge( $newquery, $array );
+		$query = wfArrayToCGI( $newquery );
+		return $onlyquery ? $query : $wgTitle->getLocalURL( $query );
+	}
+
 	/**
 	 * Check for limit and offset parameters on the input, and return sensible
 	 * defaults if not given. The limit must be positive and is capped at 5000.
@@ -540,7 +593,7 @@ class WebRequest {
 	 *
 	 * Other than this the name is not verified for being a safe filename.
 	 *
-	 * @param $key String: 
+	 * @param $key String:
 	 * @return string or NULL if no such file.
 	 */
 	function getFileName( $key ) {
@@ -556,45 +609,91 @@ class WebRequest {
 		wfDebug( "WebRequest::getFileName() '" . $_FILES[$key]['name'] . "' normalized to '$name'\n" );
 		return $name;
 	}
-	
+
 	/**
-	 * Return a handle to WebResponse style object, for setting cookies, 
+	 * Return a handle to WebResponse style object, for setting cookies,
 	 * headers and other stuff, for Request being worked on.
 	 */
 	function response() {
 		/* Lazy initialization of response object for this request */
 		if (!is_object($this->_response)) {
 			$this->_response = new WebResponse;
-		} 
+		}
 		return $this->_response;
 	}
+
+	/**
+	 * Get a request header, or false if it isn't set
+	 * @param $name String: case-insensitive header name
+	 */
+	function getHeader( $name ) {
+		$name = strtoupper( $name );
+		if ( function_exists( 'apache_request_headers' ) ) {
+			if ( !isset( $this->headers ) ) {
+				$this->headers = array();
+				foreach ( apache_request_headers() as $tempName => $tempValue ) {
+					$this->headers[ strtoupper( $tempName ) ] = $tempValue;
+				}
+			}
+			if ( isset( $this->headers[$name] ) ) {
+				return $this->headers[$name];
+			} else {
+				return false;
+			}
+		} else {
+			$name = 'HTTP_' . str_replace( '-', '_', $name );
+			if ( isset( $_SERVER[$name] ) ) {
+				return $_SERVER[$name];
+			} else {
+				return false;
+			}
+		}
+	}
 	
+	/*
+	 * Get data from $_SESSION
+	 */
+	function getSessionData( $key ) {
+		if( !isset( $_SESSION[$key] ) )
+			return null;
+		return $_SESSION[$key];
+	}
+	function setSessionData( $key, $data ) {
+		$_SESSION[$key] = $data;
+	}
 }
 
 /**
  * WebRequest clone which takes values from a provided array.
  *
+ * @ingroup HTTP
  */
 class FauxRequest extends WebRequest {
-	var $data = null;
 	var $wasPosted = false;
 
-	function FauxRequest( $data, $wasPosted = false ) {
+	/**
+	 * @param $data Array of *non*-urlencoded key => value pairs, the
+	 *   fake GET/POST values
+	 * @param $wasPosted Bool: whether to treat the data as POST
+	 */
+	function FauxRequest( $data, $wasPosted = false, $session = null ) {
 		if( is_array( $data ) ) {
 			$this->data = $data;
 		} else {
 			throw new MWException( "FauxRequest() got bogus data" );
 		}
 		$this->wasPosted = $wasPosted;
+		$this->headers = array();
+		$this->session = $session ? $session : array();
 	}
-
-	function getVal( $name, $default = NULL ) {
-		return $this->getGPCVal( $this->data, $name, $default );
+	
+	function notImplemented( $method ) {
+		throw new MWException( "{$method}() not implemented" );
 	}
 
 	function getText( $name, $default = '' ) {
 		# Override; don't recode since we're using internal data
-		return $this->getVal( $name, $default );
+		return (string)$this->getVal( $name, $default );
 	}
 
 	function getValues() {
@@ -610,13 +709,24 @@ class FauxRequest extends WebRequest {
 	}
 
 	function getRequestURL() {
-		throw new MWException( 'FauxRequest::getRequestURL() not implemented' );
+		$this->notImplemented( __METHOD__ );
 	}
 
 	function appendQuery( $query ) {
-		throw new MWException( 'FauxRequest::appendQuery() not implemented' );
+		$this->notImplemented( __METHOD__ );
+	}
+
+	function getHeader( $name ) {
+		return isset( $this->headers[$name] ) ? $this->headers[$name] : false;
+	}
+
+	function getSessionData( $key ) {
+		if( !isset( $this->session[$key] ) )
+			return null;
+		return $this->session[$key];
+	}
+	function setSessionData( $key, $data ) {
+		$this->notImplemented( __METHOD__ );
 	}
 
 }
-
-

@@ -1,6 +1,7 @@
 <?php
 /**
  * Provide things related to namespaces
+ * @file
  */
 
 /**
@@ -15,8 +16,8 @@ $wgCanonicalNamespaceNames = array(
 	NS_USER_TALK        => 'User_talk',
 	NS_PROJECT          => 'Project',
 	NS_PROJECT_TALK     => 'Project_talk',
-	NS_IMAGE            => 'Image',
-	NS_IMAGE_TALK       => 'Image_talk',
+	NS_FILE             => 'File',
+	NS_FILE_TALK        => 'File_talk',
 	NS_MEDIAWIKI        => 'MediaWiki',
 	NS_MEDIAWIKI_TALK   => 'MediaWiki_talk',
 	NS_TEMPLATE         => 'Template',
@@ -41,22 +42,24 @@ if( is_array( $wgExtraNamespaces ) ) {
  * Users and translators should not change them
  *
  */
-class Namespace {
+
+class MWNamespace {
 
 	/**
 	 * Can pages in the given namespace be moved?
 	 *
-	 * @param int $index Namespace index
+	 * @param $index Int: namespace index
 	 * @return bool
 	 */
 	public static function isMovable( $index ) {
-		return !( $index < NS_MAIN || $index == NS_IMAGE  || $index == NS_CATEGORY );
+		global $wgAllowImageMoving;
+		return !( $index < NS_MAIN || ($index == NS_FILE && !$wgAllowImageMoving)  || $index == NS_CATEGORY );
 	}
 
 	/**
 	 * Is the given namespace is a subject (non-talk) namespace?
 	 *
-	 * @param int $index Namespace index
+	 * @param $index Int: namespace index
 	 * @return bool
 	 */
 	public static function isMain( $index ) {
@@ -66,7 +69,7 @@ class Namespace {
 	/**
 	 * Is the given namespace a talk namespace?
 	 *
-	 * @param int $index Namespace index
+	 * @param $index Int: namespace index
 	 * @return bool
 	 */
 	public static function isTalk( $index ) {
@@ -77,7 +80,7 @@ class Namespace {
 	/**
 	 * Get the talk namespace index for a given namespace
 	 *
-	 * @param int $index Namespace index
+	 * @param $index Int: namespace index
 	 * @return int
 	 */
 	public static function getTalk( $index ) {
@@ -89,7 +92,7 @@ class Namespace {
 	/**
 	 * Get the subject namespace index for a given namespace
 	 *
-	 * @param int $index Namespace index
+	 * @param $index Int: Namespace index
 	 * @return int
 	 */
 	public static function getSubject( $index ) {
@@ -101,19 +104,23 @@ class Namespace {
 	/**
 	 * Returns the canonical (English Wikipedia) name for a given index
 	 *
-	 * @param int $index Namespace index
-	 * @return string
+	 * @param $index Int: namespace index
+	 * @return string or false if no canonical definition.
 	 */
 	public static function getCanonicalName( $index ) {
 		global $wgCanonicalNamespaceNames;
-		return $wgCanonicalNamespaceNames[$index];
+		if( isset( $wgCanonicalNamespaceNames[$index] ) ) {
+			return $wgCanonicalNamespaceNames[$index];
+		} else {
+			return false;
+		}
 	}
 
 	/**
 	 * Returns the index for a given canonical name, or NULL
 	 * The input *must* be converted to lower case first
 	 *
-	 * @param string $name Namespace name
+	 * @param $name String: namespace name
 	 * @return int
 	 */
 	public static function getCanonicalIndex( $name ) {
@@ -131,37 +138,48 @@ class Namespace {
 			return NULL;
 		}
 	}
-	
+
 	/**
 	 * Can this namespace ever have a talk namespace?
 	 *
-	 * @param $index Namespace index
+	 * @param $index Int: namespace index
 	 * @return bool
 	 */
 	 public static function canTalk( $index ) {
 	 	return $index >= NS_MAIN;
 	 }
-	 
+
 	/**
-	 * Does this namespace contain content, for the purposes
-	 * of calculating statistics, etc?
+	 * Does this namespace contain content, for the purposes of calculating
+	 * statistics, etc?
 	 *
-	 * @param $index Index to check
+	 * @param $index Int: index to check
 	 * @return bool
 	 */
 	public static function isContent( $index ) {
 		global $wgContentNamespaces;
 		return $index == NS_MAIN || in_array( $index, $wgContentNamespaces );
 	}
-	
+
 	/**
 	 * Can pages in a namespace be watched?
 	 *
-	 * @param int $index
+	 * @param $index Int
 	 * @return bool
 	 */
 	public static function isWatchable( $index ) {
 		return $index >= NS_MAIN;
 	}
-	 
+
+	/**
+	 * Does the namespace allow subpages?
+	 *
+	 * @param $index int Index to check
+	 * @return bool
+	 */
+	public static function hasSubpages( $index ) {
+		global $wgNamespacesWithSubpages;
+		return !empty( $wgNamespacesWithSubpages[$index] );
+	}
+
 }

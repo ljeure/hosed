@@ -1,8 +1,10 @@
 <?php
 /** Pali (पािऴ)
-  *
-  * @addtogroup Language
-  */
+ *
+ * @ingroup Language
+ * @file
+ *
+ */
 
 $digitTransformTable = array(
 	'0' => '०', # &#x0966;
@@ -17,4 +19,9 @@ $digitTransformTable = array(
 	'9' => '९', # &#x096f;
 );
 
+$messages = array(
+# All link text and link target definitions of links into project namespace that get used by other message strings, with the exception of user group pages (see grouppage) and the disambiguation template definition (see disambiguations).
+'mainpage'             => 'पमुख पत्त',
+'mainpage-description' => 'पमुख पत्त',
 
+);

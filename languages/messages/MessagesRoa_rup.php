@@ -1,12 +1,12 @@
 <?php
 /** Aromanian (Armãneashce)
  *
- * Translators: Hakka (with the help of a native speaker Dumitrachi T. Fundu)
+ * @ingroup Language
+ * @file
  *
- * @addtogroup Language
- * @author Niklas Laxström
+ * @author Dumitrachi T. Fundu
+ * @author Hakka
  */
-
 
 $messages = array(
 # Dates
@@ -67,18 +67,19 @@ $messages = array(
 'jumptosearch'     => 'Caftã',
 
 # All link text and link target definitions of links into project namespace that get used by other message strings, with the exception of user group pages (see grouppage) and the disambiguation template definition (see disambiguations).
-'currentevents' => 'Evenimente di tora',
-'disclaimers'   => 'Nipricunuschire',
-'edithelp'      => 'Agiutor ti alãxire',
-'mainpage'      => 'Prota frãndzã',
-'portal'        => 'Portal-a comunitatiljei',
-'sitesupport'   => 'Donatsiur',
+'currentevents'        => 'Evenimente di tora',
+'disclaimers'          => 'Nipricunuschire',
+'edithelp'             => 'Agiutor ti alãxire',
+'mainpage'             => 'Prota frãndzã',
+'mainpage-description' => 'Prota frãndzã',
+'portal'               => 'Portal-a comunitatiljei',
 
-'newmessageslink' => 'dimãndare nao',
-'editsection'     => 'Alãxiri',
-'editold'         => 'Alãxiri',
+'newmessageslink'         => 'dimãndare nao',
+'youhavenewmessagesmulti' => 'Avets nãi dimãndãri pi $1',
+'editsection'             => 'Alãxiri',
+'editold'                 => 'Alãxiri',
 
-# Short words for each namespace, by default used in the 'article' tab in monobook
+# Short words for each namespace, by default used in the namespace tab in monobook
 'nstab-main'     => 'Articlu',
 'nstab-user'     => 'Frãndza-a ufilizitirolui',
 'nstab-template' => 'Shablon',
@@ -105,7 +106,7 @@ Isape a vostrã ira adratã. Nu agãrshits s-le alãxits alidzerle-a vostre ti {
 'username'           => 'Numa di ufilizitor:',
 
 # Edit pages
-'summary'            => 'Rezime',
+'summary'            => 'Rezime:',
 'minoredit'          => 'Aistã easte alãxire njicã',
 'watchthis'          => 'Mutrits-u frãndzã aistã',
 'savearticle'        => 'Avigljats-u frãndzã',
@@ -136,15 +137,13 @@ Isape a vostrã ira adratã. Nu agãrshits s-le alãxits alidzerle-a vostre ti {
 'filedesc'        => 'Rezime',
 'watchthisupload' => 'Mutrits-u frãndzã aistã',
 
-# Image list
-'ilsubmit' => 'Caftã',
+# Random page
+'randompage' => 'Frãndzã di nipandicã',
 
 'brokenredirects-edit'   => '(Alãxiri)',
 'brokenredirects-delete' => '(Ashcirdzire)',
 
 # Miscellaneous special pages
-'randompage'        => 'Frãndzã di nipandicã',
-'specialpages'      => 'Frãndzã spetsiale',
 'newpages-username' => 'Numa di ufilizitor:',
 'move'              => 'Tradzets',
 'movethispage'      => 'Tradzets-u frãndza aistã',
@@ -152,10 +151,7 @@ Isape a vostrã ira adratã. Nu agãrshits s-le alãxits alidzerle-a vostre ti {
 # Book sources
 'booksources-go' => 'Du-vã',
 
-# Special:Log
-'log-search-submit' => 'Du-vã',
-
-# Special:Allpages
+# Special:AllPages
 'allpagessubmit' => 'Du-vã',
 
 # Watchlist
@@ -165,6 +161,9 @@ Isape a vostrã ira adratã. Nu agãrshits s-le alãxits alidzerle-a vostre ti {
 'watch'         => 'Videts',
 'watchthispage' => 'Mutrits-u frãndzã aistã',
 'unwatch'       => 'Azãptãsits videare',
+
+# Protect
+'prot_1movedto2' => '[[$1]] s-trãdzi tu [[$2]]',
 
 # Restrictions (nouns)
 'restriction-edit' => 'Alãxiri',
@@ -187,13 +186,13 @@ Isape a vostrã ira adratã. Nu agãrshits s-le alãxits alidzerle-a vostre ti {
 'ipblocklist-submit' => 'Caftã',
 
 # Move page
-'movepage'    => 'Tradzets-u frãndzã',
-'movearticle' => 'Tradzets-u frãndzã:',
-'move-watch'  => 'Mutrits-u frãndzã aistã',
-'movepagebtn' => 'Tradzets-u frãndzã',
-'movedto'     => 'tradzitã tu',
-'1movedto2'   => '[[$1]] s-trãdzi tu [[$2]]',
-'movereason'  => 'Itia:',
+'move-page-legend' => 'Tradzets-u frãndzã',
+'movearticle'      => 'Tradzets-u frãndzã:',
+'move-watch'       => 'Mutrits-u frãndzã aistã',
+'movepagebtn'      => 'Tradzets-u frãndzã',
+'movedto'          => 'tradzitã tu',
+'1movedto2'        => '[[$1]] s-trãdzi tu [[$2]]',
+'movereason'       => 'Itia:',
 
 # Namespace 8 related
 'allmessages' => 'Dimãndãri systemitse',
@@ -203,12 +202,16 @@ Isape a vostrã ira adratã. Nu agãrshits s-le alãxits alidzerle-a vostre ti {
 'tooltip-pt-logout'      => 'Disligats-vã',
 'tooltip-p-logo'         => 'Prota frãndzã',
 
-'youhavenewmessagesmulti' => 'Avets nãi dimãndãri pi $1',
+# Special:NewFiles
+'ilsubmit' => 'Caftã',
 
 # Multipage image navigation
 'imgmultigo' => 'Du-vã!',
 
 # Table pager
 'table_pager_limit_submit' => 'Du-vã',
+
+# Special:SpecialPages
+'specialpages' => 'Frãndzã spetsiale',
 
 );

@@ -117,26 +117,6 @@ table.rimage {
     text-align:center;
 }
 
-div.townBox {
-    position:relative;
-    float:right;
-    margin-left:1em;
-    padding:0.3em;
-    width: 200px;
-    overflow: hidden;
-    clear: right;
-}
-div.townBox dl {
-    padding: 0;
-    margin: 0 0 0.3em 0;
-}
-div.townBox dl dt {
-    background: none;
-    margin: 0.4em 0 0 0;
-}
-div.townBox dl dd {
-    margin: 0.1em 0 0 1.1em;
-}
 .portlet {
     border: none;
     float: none;
@@ -199,17 +179,9 @@ textarea {
   width: 100%;
 }
 
-#p-personal li, #p-personal ul,
-#p-tb li, #p-tb ul,
-#p-navigation li, #p-navigation ul,
-#p-cactions li, #p-cactions ul,
-#p-newlinks li, #p-newlinks ul {
-  padding-left: 0em;
-  margin-left: 0.5em;
-}
-
-#p-cactions li, #p-cactions ul {
-  margin-left: 0.7em;
+.pBody li, .pBody ul {
+	padding-left: 0em;
+	margin-left: 0.5em;
 }
 
 pre {
@@ -245,6 +217,7 @@ h1.firstHeading, h2 {
     padding-right: 18px;
 }
 #bodyContent a[href ^="irc://"],
+#bodyContent a.extiw[href ^="irc://"],
 .link-irc {
     background: url("discussionitem_icon.gif")  center right no-repeat;
     padding-right: 18px;
@@ -266,16 +239,8 @@ td.diff-deletedline {
 }
 
 .diffchange { background-color: #FFCDF3; text-decoration: none; }
-.autocomment { color:  grey; }
-#pagehistory span.user {
-    margin-left: 1.4em;
-    margin-right: 0.4em;
-}
-#pagehistory span.minor { font-weight: bold; }
-#pagehistory li.selected {
-    background-color:#f9f9f9;
-    border:1px dashed #aaaaaa;
-}
+#pagehistory li { border: none; }
+
 span.urlexpansion {
   display: none;
 }
@@ -355,7 +320,7 @@ a.new,
 li.new {
 	text-decoration: line-through;
 }
-p.catlinks {
+.catlinks {
   text-align: center;
   width: 80%;
   margin-left: auto;
@@ -373,25 +338,11 @@ div.printfooter {
   display: none;
 }
 
-
-#ca-addsection a:before {
-  content: "Add section";
-  font-size: 10pt;
-}
-
-#ca-addsection a {
-  font-size: 0px;
-}
-
 #n-portal,
 #n-currentevents,
 #n-help,
 #n-sitesupport {
   display: none;
-}
-
-span.searchmatch {
-  font-weight: bold;
 }
 
 #preftoc {
@@ -438,11 +389,3 @@ table.collapsed tr.collapsable {
 
 .templatesUsed { margin-top: 1.5em; }
 
-/* Recreating-deleted-page warning and log entries */
-div#mw-recreate-deleted-warn ul li {
-	font-size: 95%;
-}
-div.mw-recreate-deleted-control {
-	float: right;
-	font-size: 90%;
-}

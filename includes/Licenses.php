@@ -1,8 +1,8 @@
 <?php
 /**
  * A License class for use on Special:Upload
- * 
- * @addtogroup SpecialPage
+ *
+ * @ingroup SpecialPage
  *
  * @author Ævar Arnfjörð Bjarmason <avarab@gmail.com>
  * @copyright Copyright © 2005, Ævar Arnfjörð Bjarmason
@@ -121,7 +121,7 @@ class Licenses {
 
 	function outputOption( $val, $attribs = null, $depth ) {
 		$val = str_repeat( /* &nbsp */ "\xc2\xa0", $depth * 2 ) . $val;
-		return str_repeat( "\t", $depth ) . wfElement( 'option', $attribs, $val ) . "\n";
+		return str_repeat( "\t", $depth ) . Xml::element( 'option', $attribs, $val ) . "\n";
 	}
 
 	function msg( $str ) {
@@ -172,4 +172,3 @@ class License {
 		$this->text = strrev( $text );
 	}
 }
-

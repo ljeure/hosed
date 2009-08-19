@@ -24,13 +24,17 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
  *
+ * @file
  * @author Brion Vibber <brion at pobox.com>
- * @addtogroup maintenance
+ * @ingroup Maintenance
  */
 
 require_once( 'commandLine.inc' );
 require_once( 'cleanupTable.inc' );
 
+/**
+ * @ingroup Maintenance
+ */
 class ImageCleanup extends TableCleanup {
 	function __construct( $dryrun = false ) {
 		parent::__construct( 'image', $dryrun );
@@ -50,6 +54,9 @@ class ImageCleanup extends TableCleanup {
 		
 		// About half of old bad image names have percent-codes
 		$cleaned = rawurldecode( $cleaned );
+
+		// We also have some HTML entities there
+		$cleaned = Sanitizer::decodeCharReferences( $cleaned );
 		
 		// Some are old latin-1
 		$cleaned = $wgContLang->checkTitleEncoding( $cleaned );
@@ -57,17 +64,19 @@ class ImageCleanup extends TableCleanup {
 		// Many of remainder look like non-normalized unicode
 		$cleaned = UtfNormal::cleanUp( $cleaned );
 		
-		$title = Title::makeTitleSafe( NS_IMAGE, $cleaned );
+		$title = Title::makeTitleSafe( NS_FILE, $cleaned );
 		
 		if( is_null( $title ) ) {
 			$this->log( "page $source ($cleaned) is illegal." );
 			$safe = $this->buildSafeTitle( $cleaned );
+			if( $safe === false )
+				return $this->progress( 0 );
 			$this->pokeFile( $source, $safe );
 			return $this->progress( 1 );
 		}
 
-		if( $title->getDbKey() !== $source ) {
-			$munged = $title->getDbKey();
+		if( $title->getDBkey() !== $source ) {
+			$munged = $title->getDBkey();
 			$this->log( "page $source ($munged) doesn't match self." );
 			$this->pokeFile( $source, $munged );
 			return $this->progress( 1 );
@@ -106,8 +115,8 @@ class ImageCleanup extends TableCleanup {
 		$version = 0;
 		$final = $new;
 		
-		while( $db->selectField( 'image', 'img_name',
-			array( 'img_name' => $final ), __METHOD__ ) ) {
+		while( $db->selectField( 'image', 'img_name', array( 'img_name' => $final ), __METHOD__ ) ||
+			Title::makeTitle( NS_FILE, $final )->exists() ) {
 			$this->log( "Rename conflicts with '$final'..." );
 			$version++;
 			$final = $this->appendTitle( $new, "_$version" );
@@ -119,14 +128,23 @@ class ImageCleanup extends TableCleanup {
 			$this->log( "DRY RUN: would rename $path to $finalPath" );
 		} else {
 			$this->log( "renaming $path to $finalPath" );
+			// XXX: should this use File::move()?  FIXME?
 			$db->begin();
 			$db->update( 'image',
 				array( 'img_name' => $final ),
 				array( 'img_name' => $orig ),
 				__METHOD__ );
+			$db->update( 'oldimage',
+				array( 'oi_name' => $final ),
+				array( 'oi_name' => $orig ),
+				__METHOD__ );
+			$db->update( 'page',
+				array( 'page_title' => $final ),
+				array( 'page_title' => $orig, 'page_namespace' => NS_FILE ),
+				__METHOD__ );
 			$dir = dirname( $finalPath );
 			if( !file_exists( $dir ) ) {
-				if( !mkdir( $dir, 0777, true ) ) {
+				if( !wfMkdirParents( $dir ) ) {
 					$this->log( "RENAME FAILED, COULD NOT CREATE $dir" );
 					$db->rollback();
 					return;
@@ -149,12 +167,12 @@ class ImageCleanup extends TableCleanup {
 	function buildSafeTitle( $name ) {
 		global $wgLegalTitleChars;
 		$x = preg_replace_callback(
-			"/([^$wgLegalTitleChars])/",
+			"/([^$wgLegalTitleChars]|~)/",
 			array( $this, 'hexChar' ),
 			$name );
 		
-		$test = Title::makeTitleSafe( NS_IMAGE, $x );
-		if( is_null( $test ) || $test->getDbKey() !== $x ) {
+		$test = Title::makeTitleSafe( NS_FILE, $x );
+		if( is_null( $test ) || $test->getDBkey() !== $x ) {
 			$this->log( "Unable to generate safe title from '$name', got '$x'" );
 			return false;
 		}

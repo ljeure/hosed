@@ -3,8 +3,9 @@
  * Rebuild link tracking tables from scratch.  This takes several
  * hours, depending on the database size and server configuration.
  *
+ * @file
  * @todo document
- * @addtogroup Maintenance
+ * @ingroup Maintenance
  */
 
 /** */
@@ -15,9 +16,7 @@ $wgTitle = Title::newFromText( "Rebuild recent changes script" );
 $wgDBuser			= $wgDBadminuser;
 $wgDBpassword		= $wgDBadminpassword;
 
-rebuildRecentChangesTablePass1();
-rebuildRecentChangesTablePass2();
-rebuildRecentChangesTablePass3(); // flag bot edits
+rebuildRecentChangesTable();
 
 print "Done.\n";
 exit();

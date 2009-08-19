@@ -1,28 +1,24 @@
 <?php
 /**
- * See skin.txt
+ * See docs/skin.txt
  *
  * @todo document
- * @addtogroup Skins
+ * @file
+ * @ingroup Skins
  */
 
 if( !defined( 'MEDIAWIKI' ) )
 	die( -1 );
 
-/** */
-require_once( dirname(__FILE__) . '/MonoBook.php' );
-
 /**
  * @todo document
- * @addtogroup Skins
+ * @ingroup Skins
  */
 class SkinMySkin extends SkinTemplate {
-	function initPage( &$out ) {
-		SkinTemplate::initPage( $out );
+	function initPage( OutputPage $out ) {
+		parent::initPage( $out );
 		$this->skinname  = 'myskin';
 		$this->stylename = 'myskin';
 		$this->template  = 'MonoBookTemplate';
 	}
 }
-
-

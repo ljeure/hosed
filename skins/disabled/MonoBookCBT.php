@@ -443,7 +443,7 @@ class SkinMonoBookCBT extends SkinTemplate {
 				$this->mOut->setSquidMaxage(0);
 			}
 		} else if (count($newtalks)) {
-			$sep = str_replace("_", " ", wfMsgHtml("newtalkseperator"));
+			$sep = str_replace("_", " ", wfMsgHtml("newtalkseparator"));
 			$msgs = array();
 			foreach ($newtalks as $newtalk) {
 				$msgs[] = wfElement("a", 
@@ -1020,7 +1020,7 @@ class SkinMonoBookCBT extends SkinTemplate {
 		$dbr = wfGetDB( DB_SLAVE );
 		extract( $dbr->tableNames( 'watchlist' ) );
 		$sql = "SELECT COUNT(*) AS n FROM $watchlist
-			WHERE wl_title='" . $dbr->strencode($this->mTitle->getDBKey()) .
+			WHERE wl_title='" . $dbr->strencode($this->mTitle->getDBkey()) .
 			"' AND  wl_namespace=" . $this->mTitle->getNamespace() ;
 		$res = $dbr->query( $sql, 'SkinTemplate::outputPage');
 		$row = $dbr->fetchObject( $res );

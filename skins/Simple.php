@@ -1,9 +1,10 @@
 <?php
 /**
- * See skin.txt
+ * See docs/skin.txt
  *
  * @todo document
- * @addtogroup Skins
+ * @file
+ * @ingroup Skins
  */
 
 if( !defined( 'MEDIAWIKI' ) )
@@ -14,17 +15,23 @@ require_once( dirname(__FILE__) . '/MonoBook.php' );
 
 /**
  * @todo document
- * @addtogroup Skins
+ * @ingroup Skins
  */
 class SkinSimple extends SkinTemplate {
-	function initPage( &$out ) {
+	function initPage( OutputPage $out ) {
 		SkinTemplate::initPage( $out );
 		$this->skinname  = 'simple';
 		$this->stylename = 'simple';
 		$this->template  = 'MonoBookTemplate';
 	}
 
-	function reallyDoGetUserStyles() {
+	function setupSkinUserCss( OutputPage $out ){
+		$out->addStyle( 'simple/main.css', 'screen' );
+		$out->addStyle( 'simple/rtl.css', '', '', 'rtl' );
+
+	}
+
+	function reallyGenerateUserStylesheet() {
 		global $wgUser;
 		$s = '';
 		if (($undopt = $wgUser->getOption("underline")) != 2) {

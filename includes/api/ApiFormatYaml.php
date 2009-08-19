@@ -29,7 +29,7 @@ if (!defined('MEDIAWIKI')) {
 }
 
 /**
- * @addtogroup API
+ * @ingroup API
  */
 class ApiFormatYaml extends ApiFormatBase {
 
@@ -45,12 +45,11 @@ class ApiFormatYaml extends ApiFormatBase {
 		$this->printText(Spyc :: YAMLDump($this->getResultData()));
 	}
 
-	protected function getDescription() {
+	public function getDescription() {
 		return 'Output data in YAML format' . parent :: getDescription();
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiFormatYaml.php 23531 2007-06-29 01:19:14Z simetrical $';
+		return __CLASS__ . ': $Id: ApiFormatYaml.php 35098 2008-05-20 17:13:28Z ialex $';
 	}
 }
-
