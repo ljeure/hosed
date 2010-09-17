@@ -24,9 +24,6 @@ set_include_path( implode( PATH_SEPARATOR, $path ) . PATH_SEPARATOR . get_includ
 
 require_once( "$IP/includes/DefaultSettings.php" );
 
-# If PHP's memory limit is very low, some operations may fail.
-# ini_set( 'memory_limit', '20M' );
-
 if ( $wgCommandLineMode ) {
 	if ( isset( $_SERVER ) && array_key_exists( 'REQUEST_METHOD', $_SERVER ) ) {
 		die( "This script must be run from the command line\n" );
@@ -43,6 +40,13 @@ $wgSitename         = WIZARD_SITENAME;
 ## http://www.mediawiki.org/wiki/Manual:Short_URL
 $wgScriptPath       = WIZARD_SCRIPTPATH;
 $wgScriptExtension  = ".php";
+
+## The relative URL path to the skins directory
+$wgStylePath        = "$wgScriptPath/skins";
+
+## The relative URL path to the logo.  Make sure you change this from the default,
+## or else you'll overwrite your logo when you upgrade!
+$wgLogo             = "$wgStylePath/common/images/wiki.png";
 
 ## UPO means: this is also a user preference option
 
@@ -97,6 +101,11 @@ $wgShellLocale = "en_US.utf8";
 ## you can enable inline LaTeX equations:
 $wgUseTeX           = false;
 
+## Set $wgCacheDirectory to a writable directory on the web server
+## to make your wiki go slightly faster. The directory should not
+## be publically accessible from the web.
+#$wgCacheDirectory = "$IP/cache";
+
 $wgLocalInterwiki   = strtolower( $wgSitename );
 
 $wgLanguageCode = "en";
@@ -104,7 +113,7 @@ $wgLanguageCode = "en";
 $wgSecretKey = WIZARD_SECRETKEY;
 
 ## Default skin: you can change the default skin. Use the internal symbolic
-## names, ie 'standard', 'nostalgia', 'cologneblue', 'monobook':
+## names, ie 'vector', 'monobook':
 $wgDefaultSkin = 'monobook';
 
 ## For attaching licensing metadata to pages, and displaying an
