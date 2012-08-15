@@ -701,6 +701,6 @@ class ApiQueryInfo extends ApiQueryBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiQueryInfo.php 78439 2010-12-15 14:23:46Z catrope $';
+		return __CLASS__ . ': $Id$';
 	}
 }

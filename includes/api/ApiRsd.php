@@ -160,7 +160,7 @@ class ApiRsd extends ApiBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiRsd.php 76195 2010-11-06 15:57:15Z btongminh $';
+		return __CLASS__ . ': $Id$';
 	}
 }
 
@@ -175,6 +175,6 @@ class ApiFormatXmlRsd extends ApiFormatXml {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiRsd.php 76195 2010-11-06 15:57:15Z btongminh $';
+		return __CLASS__ . ': $Id$';
 	}
 }

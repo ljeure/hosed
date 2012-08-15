@@ -146,6 +146,6 @@ class ApiQueryLangLinks extends ApiQueryBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiQueryLangLinks.php 77660 2010-12-03 14:44:07Z catrope $';
+		return __CLASS__ . ': $Id$';
 	}
 }

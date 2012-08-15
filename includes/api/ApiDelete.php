@@ -279,6 +279,6 @@ class ApiDelete extends ApiBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiDelete.php 77141 2010-11-23 10:04:38Z ialex $';
+		return __CLASS__ . ': $Id$';
 	}
 }

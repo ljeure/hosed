@@ -364,6 +364,6 @@ class ApiQueryCategoryMembers extends ApiQueryGeneratorBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiQueryCategoryMembers.php 86474 2011-04-20 13:22:05Z catrope $';
+		return __CLASS__ . ': $Id$';
 	}
 }

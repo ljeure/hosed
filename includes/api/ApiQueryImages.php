@@ -166,6 +166,6 @@ class ApiQueryImages extends ApiQueryGeneratorBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiQueryImages.php 73543 2010-09-22 16:50:09Z platonides $';
+		return __CLASS__ . ': $Id$';
 	}
 }

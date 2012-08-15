@@ -139,6 +139,6 @@ class ApiUserrights extends ApiBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiUserrights.php 75602 2010-10-28 00:04:48Z reedy $';
+		return __CLASS__ . ': $Id$';
 	}
 }

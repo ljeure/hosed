@@ -150,6 +150,6 @@ class ApiHelp extends ApiBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiHelp.php 73863 2010-09-28 02:33:43Z brion $';
+		return __CLASS__ . ': $Id$';
 	}
 }

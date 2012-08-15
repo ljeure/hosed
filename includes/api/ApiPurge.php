@@ -112,6 +112,6 @@ class ApiPurge extends ApiBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiPurge.php 74944 2010-10-18 09:19:20Z catrope $';
+		return __CLASS__ . ': $Id$';
 	}
 }

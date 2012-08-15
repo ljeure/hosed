@@ -475,6 +475,6 @@ class ApiQueryImageInfo extends ApiQueryBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiQueryImageInfo.php 85435 2011-04-05 14:00:08Z demon $';
+		return __CLASS__ . ': $Id$';
 	}
 }

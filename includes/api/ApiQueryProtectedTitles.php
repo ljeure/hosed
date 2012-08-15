@@ -223,6 +223,6 @@ class ApiQueryProtectedTitles extends ApiQueryGeneratorBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiQueryProtectedTitles.php 71838 2010-08-28 01:18:18Z reedy $';
+		return __CLASS__ . ': $Id$';
 	}
 }

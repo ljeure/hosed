@@ -153,6 +153,6 @@ class ApiQueryIWLinks extends ApiQueryBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiQueryIWLinks.php 77080 2010-11-21 17:27:13Z reedy $';
+		return __CLASS__ . ': $Id$';
 	}
 }
