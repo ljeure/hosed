@@ -1363,6 +1363,6 @@ abstract class ApiBase {
 	 * @return string
 	 */
 	public static function getBaseVersion() {
-		return __CLASS__ . ': $Id: ApiBase.php 82730 2011-02-24 16:03:05Z reedy $';
+		return __CLASS__ . ': $Id$';
 	}
 }

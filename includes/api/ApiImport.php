@@ -160,7 +160,7 @@ class ApiImport extends ApiBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiImport.php 77800 2010-12-05 14:22:49Z ialex $';
+		return __CLASS__ . ': $Id$';
 	}
 }
 

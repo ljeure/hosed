@@ -109,6 +109,6 @@ class ApiPatrol extends ApiBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiPatrol.php 78437 2010-12-15 14:14:16Z catrope $';
+		return __CLASS__ . ': $Id$';
 	}
 }

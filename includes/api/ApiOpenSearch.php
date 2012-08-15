@@ -126,6 +126,6 @@ class ApiOpenSearch extends ApiBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiOpenSearch.php 79720 2011-01-06 14:48:34Z catrope $';
+		return __CLASS__ . ': $Id$';
 	}
 }

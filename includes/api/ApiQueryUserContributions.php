@@ -463,6 +463,6 @@ class ApiQueryContributions extends ApiQueryBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiQueryUserContributions.php 75096 2010-10-20 18:50:33Z reedy $';
+		return __CLASS__ . ': $Id$';
 	}
 }

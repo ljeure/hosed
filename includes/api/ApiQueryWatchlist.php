@@ -424,6 +424,6 @@ class ApiQueryWatchlist extends ApiQueryGeneratorBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiQueryWatchlist.php 85435 2011-04-05 14:00:08Z demon $';
+		return __CLASS__ . ': $Id$';
 	}
 }

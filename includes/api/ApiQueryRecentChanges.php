@@ -608,6 +608,6 @@ class ApiQueryRecentChanges extends ApiQueryBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiQueryRecentChanges.php 78437 2010-12-15 14:14:16Z catrope $';
+		return __CLASS__ . ': $Id$';
 	}
 }

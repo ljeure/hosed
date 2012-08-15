@@ -292,6 +292,6 @@ class ApiQuerySearch extends ApiQueryGeneratorBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiQuerySearch.php 76300 2010-11-08 12:23:24Z reedy $';
+		return __CLASS__ . ': $Id$';
 	}
 }

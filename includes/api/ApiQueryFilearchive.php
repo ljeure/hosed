@@ -259,6 +259,6 @@ class ApiQueryFilearchive extends ApiQueryBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiQueryFilearchive.php 85354 2011-04-04 18:25:31Z demon $';
+		return __CLASS__ . ': $Id$';
 	}
 }

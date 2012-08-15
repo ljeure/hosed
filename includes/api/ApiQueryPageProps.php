@@ -145,6 +145,6 @@ class ApiQueryPageProps extends ApiQueryBase {
 	}
 
 	public function getVersion() {
-		return __CLASS__ . ': $Id: ApiQueryPageProps.php 85211 2011-04-02 21:01:00Z demon $';
+		return __CLASS__ . ': $Id$';
 	}
 }
