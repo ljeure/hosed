@@ -32,7 +32,8 @@ $wgStylePath        = "$wgScriptPath/skins";
 
 ## The relative URL path to the logo.  Make sure you change this from the default,
 ## or else you'll overwrite your logo when you upgrade!
-$wgLogo             = "$wgStylePath/common/images/wiki.png";
+$wgLogo             = $wgScriptPath . "/beaverhydrantsmall.tepng";
+
 
 ## UPO means: this is also a user preference option
 
@@ -132,4 +133,9 @@ $wgResourceLoaderMaxQueryLength = -1;
 
 # End of automatically generated settings.
 # Add more configuration options below.
+
+# for LaTeX
+include './extensions/Mtag.php';
+
+# for Math
 
